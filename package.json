@@ -15,7 +15,11 @@
     "typescript": "^5.5.4"
   },
   "dependencies": {
+    "@mayanfinance/swap-sdk": "^9.1.0",
     "@solana/web3.js": "^1.95.3",
+    "@wormhole-foundation/sdk-connect": "^0.10.2",
+    "@wormhole-foundation/sdk-evm": "^0.10.2",
+    "@wormhole-foundation/sdk-solana": "^0.10.2",
     "axios": "^1.7.4",
     "bignumber.js": "^9.1.2",
     "dotenv": "^16.4.5",

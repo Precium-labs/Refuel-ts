@@ -57,6 +57,12 @@ function generateWalletMessage(
   const evmAddress = `<code>${evmWallet.address}</code>`;
   const solanaAddress = `<code>${solanaWallet.address}</code>`;
 
+  const ethBalance = parseFloat(ethers.formatEther(balances.eth));
+    const arbBalance = parseFloat(ethers.formatEther(balances.arb));
+    const baseBalance = parseFloat(ethers.formatEther(balances.base));
+    const optBalance = parseFloat(ethers.formatEther(balances.opt));
+    const solBalance = balances.sol / 1e9; // Convert lamports to SOL (Solana's base unit)
+
   return `@${firstName} <b>Welcome</b> to <b>Refuel Bot</b> ⛽️\n\n` +
     `The <b>Fastest</b>⚡ and most <b>Reliable</b>🛡️ way to get <b>Gas</b> into your wallet \n<b>Leveraging on Wormhole Technologies</b> \n\n` +
     `<b>🔗These are your wallets and their Balance:</b>\n\n` +
@@ -65,11 +71,11 @@ function generateWalletMessage(
     `<b>Solana Wallet</b>\n` +
     `Address: ${solanaAddress}\n\n` +
     `<b>Wallet Balance</b>\n` +
-    `ETH: <code>${formatBalance(balances.eth)}</code> ETH ($${(parseFloat(formatBalance(balances.eth)) * prices.eth).toFixed(2)})\n` +
-    `Arbitrum: <code>${formatBalance(balances.arb)}</code> ETH ($${(parseFloat(formatBalance(balances.arb)) * prices.eth).toFixed(2)})\n` +
-    `Base: <code>${formatBalance(balances.base)}</code> ETH ($${(parseFloat(formatBalance(balances.base)) * prices.eth).toFixed(2)})\n` +
-    `Optimism: <code>${formatBalance(balances.opt)}</code> ETH ($${(parseFloat(formatBalance(balances.opt)) * prices.eth).toFixed(2)})\n` +
-    `Solana: <code>${(balances.sol / 1e9).toFixed(9)}</code> SOL ($${((balances.sol / 1e9) * prices.sol).toFixed(2)})\n\n` +
+    `ETH: <code>${ethBalance}</code> ETH ($${(parseFloat(formatBalance(balances.eth)) * prices.eth).toFixed(2)})\n` +
+    `Arbitrum: <code>${arbBalance}</code> ETH ($${(parseFloat(formatBalance(balances.arb)) * prices.eth).toFixed(2)})\n` +
+    `Base: <code>${baseBalance}</code> ETH ($${(parseFloat(formatBalance(balances.base)) * prices.eth).toFixed(2)})\n` +
+    `Optimism: <code>${optBalance}</code> ETH ($${(parseFloat(formatBalance(balances.opt)) * prices.eth).toFixed(2)})\n` +
+    `Solana: <code>${solBalance}</code> SOL ($${((balances.sol / 1e9) * prices.sol).toFixed(2)})\n\n` +
     `<b>Current Prices:</b>\n` +
     `ETH: $${prices.eth}\n` +
     `SOL: $${prices.sol}\n\n` +
@@ -79,11 +85,11 @@ function generateWalletMessage(
 
 function setupProviders() {
   return {
-    eth: new ethers.JsonRpcProvider(`https://eth-sepolia.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-    arb: new ethers.JsonRpcProvider(`https://arb-sepolia.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-    base: new ethers.JsonRpcProvider(`https://base-sepolia.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-    opt: new ethers.JsonRpcProvider(`https://opt-sepolia.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-    sol: new Connection(clusterApiUrl('devnet'), 'confirmed')
+    eth: new ethers.JsonRpcProvider(`https://eth-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
+    arb: new ethers.JsonRpcProvider(`https://arb-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
+    base: new ethers.JsonRpcProvider(`https://base-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
+    opt: new ethers.JsonRpcProvider(`https://opt-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
+    sol: new Connection(clusterApiUrl('mainnet-beta'), 'confirmed')
   };
 }
 
@@ -101,7 +107,7 @@ async function fetchBalances(providers: any, evmWallet: WalletData, solanaWallet
       providers.base.getBalance(evmWallet.address).catch((e: Error) => {
         console.error('Error fetching BASE balance:', e);
         return 0n;
-      }),
+      }), 
       providers.opt.getBalance(evmWallet.address).catch((e: Error) => {
         console.error('Error fetching OPT balance:', e);
         return 0n;
@@ -163,7 +169,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
         solanaWalletData = userWalletData.solana_wallet;
       } catch (error) {
         if (axios.isAxiosError(error) && error.response && error.response.status === 404) {
-          console.log('User not found, creating new wallets...');
+          console.log('User not foundm  , creating new wallets...');
           try {
             const randomWallet = ethers.Wallet.createRandom();
             evmWalletData = {
@@ -282,4 +288,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
     }
   });
 };
+// start.ts
+export { setupProviders, fetchBalances, fetchPrices, generateWalletMessage } 
+
 
