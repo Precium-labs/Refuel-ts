@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { Connection, clusterApiUrl } from '@solana/web3.js';
+import { Connection, clusterApiUrl, Keypair } from '@solana/web3.js';
 import { Wormhole, Network, Chain, routes, ChainContext, TokenId } from "@wormhole-foundation/sdk-connect";
 import { EvmPlatform } from "@wormhole-foundation/sdk-evm";
 import { SolanaPlatform } from "@wormhole-foundation/sdk-solana";
@@ -8,6 +8,8 @@ import { getStuff, TransferStuff } from "../utils";
 import axios from 'axios';
 import { Markup, Telegraf } from 'telegraf';
 import { MyContext } from '../index';
+import BigNumber from 'bignumber.js';
+import bs58 from 'bs58';
 
 // Setup Wormhole
 const wh = new Wormhole("Mainnet", [EvmPlatform, SolanaPlatform]);
@@ -36,7 +38,14 @@ const supportedChains: ChainInfo[] = [
   { name: "Arbitrum", chain: wh.getChain("Arbitrum") }
 ];
 
-// Define setupProviders function directly
+const chainToNativeToken: { [key: string]: string } = {
+  "Ethereum": "ethereum",
+  "Solana": "solana",
+  "Base": "ethereum",
+  "Optimism": "ethereum",
+  "Arbitrum": "ethereum"
+};
+
 function setupProviders() {
   return {
     eth: new ethers.JsonRpcProvider(`https://eth-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
@@ -47,8 +56,12 @@ function setupProviders() {
   };
 }
 
-async function getUsdPrice(tokenSymbol: string): Promise<number> {
+async function getUsdPrice(chainName: string): Promise<number> {
   try {
+    const tokenSymbol = chainToNativeToken[chainName];
+    if (!tokenSymbol) {
+      throw new Error(`Unknown chain: ${chainName}`);
+    }
     const response = await axios.get(`https://api.coingecko.com/api/v3/simple/price?ids=${tokenSymbol}&vs_currencies=usd`);
     return response.data[tokenSymbol].usd;
   } catch (error) {
@@ -103,54 +116,124 @@ module.exports = (bot: Telegraf<MyContext>) => {
       if (!sourceChain || !destChain) {
         throw new Error('Source or destination chain not selected');
       }
-
+  
+      console.log(`Starting refuel from ${sourceChain.name} to ${destChain.name} for ${amountUsd} USD`);
+  
       const telegramId = ctx.from?.id.toString();
       if (!telegramId) {
         throw new Error('Unable to identify user');
       }
-
+  
       const userWalletData = await getUserWalletData(telegramId);
-
+      console.log('User wallet data retrieved');
+  
       // Define source and destination tokens
       const source: TokenId = { chain: sourceChain.chain.chain, address: "native" };
       const destination: TokenId = { chain: destChain.chain.chain, address: "native" };
-
-      const sourcePrice = await getUsdPrice(sourceChain.name.toLowerCase());
-      const amountInSourceToken = (amountUsd / sourcePrice).toString();
-
+  
+      const sourcePrice = await getUsdPrice(sourceChain.name);
+      console.log(`Price for ${sourceChain.name}: ${sourcePrice} USD`);
+  
+      if (sourcePrice === 0) {
+        throw new Error(`Unable to fetch price for ${sourceChain.name}`);
+      }
+  
+      if (amountUsd <= 0) {
+        throw new Error('Amount must be greater than 0');
+      }
+  
+      const sourcePriceBN = new BigNumber(sourcePrice);
+      const amountUsdBN = new BigNumber(amountUsd);
+      let amountInSourceToken: string;
+  
+      if (sourceChain.name === "Solana") {
+        // For Solana, convert to lamports (1 SOL = 1e9 lamports)
+        const solAmount = amountUsdBN.dividedBy(sourcePriceBN);
+        amountInSourceToken = solAmount.toString();
+        console.log(`Amount in SOL: ${solAmount.toFixed(9)}`);
+        console.log(`Amount in lamports: ${amountInSourceToken}`);
+      } else {
+        // For EVM chains, convert to wei (1 ETH = 1e18 wei)
+        const ethAmount = amountUsdBN.dividedBy(sourcePriceBN);
+        amountInSourceToken = ethAmount.toString();
+        console.log(`Amount in ETH: ${ethAmount.toFixed(18)}`);
+        console.log(`Amount in wei: ${amountInSourceToken}`);
+      }
+  
+      console.log(`Amount in source token: ${amountInSourceToken}`);
+  
       const tr = await routes.RouteTransferRequest.create(wh, {
         source,
         destination,
       });
-
+  
+      console.log('Route transfer request created');
+  
       const foundRoutes = await resolver.findRoutes(tr);
+      console.log(`Found ${foundRoutes.length} routes`);
+  
       const bestRoute = foundRoutes[0]!;
-
+      console.log('Selected best route');
+  
       const transferParams = {
         amount: amountInSourceToken,
         options: bestRoute.getDefaultOptions(),
       };
-
+  
+      console.log('Transfer params:', transferParams);
+  
       let validated = await bestRoute.validate(tr, transferParams);
       if (!validated.valid) {
         throw new Error(validated.error.message);
       }
-
+      console.log('Route validated');
+  
       const quote = await bestRoute.quote(tr, validated.params);
       if (!quote.success) {
         throw new Error(`Error fetching a quote: ${quote.error.message}`);
       }
-
+      console.log('Quote received:', quote);
+  
       // Get the user's signer and address
-      const senderStuff: TransferStuff<Network, Chain> = await getStuff(
-        sourceChain.chain, 
-        sourceChain.name === "Solana" ? userWalletData.solana_wallet.private_key : userWalletData.evm_wallet.private_key
-      );
-      const receiverStuff: TransferStuff<Network, Chain> = await getStuff(
-        destChain.chain, 
-        destChain.name === "Solana" ? userWalletData.solana_wallet.private_key : userWalletData.evm_wallet.private_key
-      );
-
+      let senderStuff: TransferStuff<Network, Chain>;
+      let receiverStuff: TransferStuff<Network, Chain>;
+  
+      try {
+        if (sourceChain.name === "Solana") {
+          const privateKey = userWalletData.solana_wallet.private_key;
+          const privateKeyBuffer = Buffer.from(privateKey, 'hex');
+          const senderPrivateKey = bs58.encode(privateKeyBuffer);
+          senderStuff = await getStuff(sourceChain.chain, senderPrivateKey);
+          console.log("private",senderPrivateKey)
+        } else {
+          senderStuff = await getStuff(sourceChain.chain, userWalletData.evm_wallet.private_key);
+        }
+  
+        if (destChain.name === "Solana") {
+          const privateKey = userWalletData.solana_wallet.private_key;
+          const privateKeyBuffer = Buffer.from(privateKey, 'hex');
+          const recieverPrivateKey = bs58.encode(privateKeyBuffer);
+          receiverStuff = await getStuff(destChain.chain, recieverPrivateKey );
+        } else {
+          receiverStuff = await getStuff(destChain.chain, userWalletData.evm_wallet.private_key);
+        }
+      } catch (error) {
+        console.error('Error preparing wallet stuff:', error);
+        throw new Error('Failed to prepare wallet information. Please check your wallet keys.');
+      }
+  
+      console.log('Sender details:');
+      console.log('Chain:', sourceChain.name);
+      console.log('Address:', senderStuff.address);
+      console.log('Signer type:', typeof senderStuff.signer);
+  
+      console.log('Receiver details:');
+      console.log('Chain:', destChain.name);
+      console.log('Address:', receiverStuff.address);
+      console.log('Signer type:', typeof receiverStuff.signer);
+  
+      console.log('Sender and receiver stuff prepared');
+  
       // Initiate the transfer
       const receipt = await bestRoute.initiate(
         tr,
@@ -159,7 +242,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
         receiverStuff.address
       );
       console.log("Initiated transfer with receipt: ", receipt);
-
+  
       // Check and complete the transfer
       await routes.checkAndCompleteTransfer(
         bestRoute,
@@ -167,17 +250,19 @@ module.exports = (bot: Telegraf<MyContext>) => {
         receiverStuff.signer,
         15 * 60 * 1000
       );
-
+  
+      console.log('Transfer completed');
+  
       await ctx.reply(`Transfer initiated successfully. Receipt: ${JSON.stringify(receipt)}`);
-
+  
     } catch (error) {
       console.error('Error in refuel:', error);
-      
+  
       if (error instanceof Error) {
         await ctx.reply(`An error occurred: ${error.message}`);
       } else {
         await ctx.reply('An unknown error occurred.');
       }
     }
-  }
+  }  
 };
