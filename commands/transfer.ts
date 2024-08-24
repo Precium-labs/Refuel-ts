@@ -4,7 +4,6 @@ import { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransa
 import axios from 'axios';
 import { MyContext } from '../index';
 
-
 const SUPPORTED_CHAINS = ['SOL', 'ETH', 'BASE', 'ARB', 'OPTIMISM'];
 
 interface WalletData {
@@ -29,7 +28,6 @@ interface Balances {
     opt: bigint;
     sol: number;
 }
-
 
 function setupProviders() {
     return {
@@ -98,53 +96,72 @@ async function fetchBalances(providers: any, evmWallet: WalletData, solanaWallet
     }
 }
 
+let transferInProgress = false;
+
 module.exports = (bot: Telegraf<MyContext>) => {
     let selectedChain: string | null = null;
     let amountUSD: number | null = null;
     let recipientAddress: string | null = null;
 
+    // Start the transfer process
     bot.action('transfer', async (ctx) => {
         selectedChain = null;
         amountUSD = null;
         recipientAddress = null;
-
+        transferInProgress = true;
+    
         const chainKeyboard = Markup.inlineKeyboard(
-            SUPPORTED_CHAINS.map(chain => [Markup.button.callback(chain, `select_chain_${chain}`)])
+            SUPPORTED_CHAINS.map(chain => [Markup.button.callback(`transfer_${chain}`, `select_chain_${chain}`)])
         );
-
-        await ctx.editMessageText('Select the chain you want to transfer from:', chainKeyboard);
+    
+        await ctx.reply('Transfer process started. Select the chain you want to transfer from:', chainKeyboard);
     });
 
+    // Handle chain selection
     SUPPORTED_CHAINS.forEach(chain => {
         bot.action(`select_chain_${chain}`, async (ctx) => {
             selectedChain = chain;
             await ctx.answerCbQuery(`${chain} selected`);
-            await ctx.reply('Enter the amount you want to send in USD:');
+            await ctx.reply('Enter the amount you want to send in USD (format: /amount 100):');
         });
     });
 
-    bot.on('text', async (ctx) => {
-        if (!selectedChain) {
-            await ctx.reply('Please select a chain first by clicking the Transfer button.');
+    // Handle amount input
+    bot.command('amount', async (ctx) => {
+        if (!transferInProgress) return;
+
+        const amount = parseFloat(ctx.message.text.split(' ')[1]);
+        if (isNaN(amount) || amount <= 0) {
+            await ctx.reply('Please enter a valid positive number for the amount.');
             return;
         }
+        amountUSD = amount;
+        await ctx.reply('Enter the recipient address (format: /address 0x...):');
+    });
 
-        if (amountUSD === null) {
-            const amount = parseFloat(ctx.message.text);
-            if (isNaN(amount) || amount <= 0) {
-                await ctx.reply('Please enter a valid positive number for the amount.');
-                return;
-            }
-            amountUSD = amount;
-            await ctx.reply('Enter the recipient address:');
-        } else if (recipientAddress === null) {
-            recipientAddress = ctx.message.text.trim();
-            if (!isValidAddress(recipientAddress, selectedChain)) {
-                await ctx.reply('Invalid address. Please enter a valid address for the selected chain.');
-                recipientAddress = null;
-                return;
-            }
-            await initiateTransfer(ctx);
+    // Handle address input
+    bot.command('address', async (ctx) => {
+        if (!transferInProgress) return;
+
+        const address = ctx.message.text.split(' ')[1];
+        if (!isValidAddress(address, selectedChain!)) {
+            await ctx.reply('Invalid address. Please enter a valid address for the selected chain.');
+            return;
+        }
+        recipientAddress = address;
+        await initiateTransfer(ctx);
+    });
+
+    // Cancel transfer process
+    bot.command('cancel_transfer', async (ctx) => {
+        if (transferInProgress) {
+            transferInProgress = false;
+            selectedChain = null;
+            amountUSD = null;
+            recipientAddress = null;
+            await ctx.reply('Transfer process cancelled.');
+        } else {
+            await ctx.reply('No transfer process is currently active.');
         }
     });
 
@@ -199,6 +216,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
         selectedChain = null;
         amountUSD = null;
         recipientAddress = null;
+        transferInProgress = false;
     }
 
     function isValidAddress(address: string, chain: string): boolean {
@@ -232,12 +250,8 @@ module.exports = (bot: Telegraf<MyContext>) => {
     }
 
     async function transferSOL(from: string, to: string, amount: number, privateKey: string, connection: Connection): Promise<string> {
-        // Convert the private key string to a Uint8Array
         const privateKeyUint8Array = new Uint8Array(Buffer.from(privateKey, 'hex'));
-
-        // Create a Keypair from the private key
         const fromKeypair = Keypair.fromSecretKey(privateKeyUint8Array);
-
         const fromPublicKey = new PublicKey(from);
         const toPublicKey = new PublicKey(to);
 
@@ -288,4 +302,4 @@ module.exports = (bot: Telegraf<MyContext>) => {
     }
 };
 
-export { };
+export {};

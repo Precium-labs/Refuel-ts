@@ -30,11 +30,11 @@ interface Balances {
 // Function to set up providers
 function setupProviders() {
   return {
-    eth: new ethers.JsonRpcProvider(`https://eth-sepolia.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-    arb: new ethers.JsonRpcProvider(`https://arb-sepolia.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-    base: new ethers.JsonRpcProvider(`https://base-sepolia.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-    opt: new ethers.JsonRpcProvider(`https://opt-sepolia.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-    sol: new Connection(clusterApiUrl('devnet'), 'confirmed')
+    eth: new ethers.JsonRpcProvider(`https://eth-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
+    arb: new ethers.JsonRpcProvider(`https://arb-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
+    base: new ethers.JsonRpcProvider(`https://base-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
+    opt: new ethers.JsonRpcProvider(`https://opt-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
+    sol: new Connection(clusterApiUrl('mainnet-beta'), 'confirmed')
   };
 }
 
@@ -180,7 +180,7 @@ module.exports = (bot: Telegraf<Context>) => {
         [Markup.button.callback('Back to Main Menu', 'back_to_main')]
       ]);
       
-      await ctx.editMessageText(message, { parse_mode: 'Markdown', ...keyboard });
+      await ctx.reply(message, { parse_mode: 'Markdown', ...keyboard });
     } catch (error) {
       console.error('Error handling Wallet button:', error);
       const err = error as Error; // Type assertion
