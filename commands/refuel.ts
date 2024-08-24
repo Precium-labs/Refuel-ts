@@ -118,6 +118,8 @@ module.exports = (bot: Telegraf<MyContext>) => {
           await ctx.reply('Minimum bridge amount is $2.', keyboard);
           return;
         }
+        await ctx.reply('Transaction processing. It will take 1-3 minutes for the transaction to be completed.');
+        
         await performRefuel(ctx, amountUsd);
       });
     });
