@@ -191,7 +191,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
         amount: amountInSourceToken,
         options: bestRoute.getDefaultOptions(),
       };
-  
+      ctx.reply("Bridge Initiated would be done in 1-3 minutes")
       console.log('Transfer params:', transferParams);
   
       let validated = await bestRoute.validate(tr, transferParams);
@@ -205,7 +205,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
         throw new Error(`Error fetching a quote: ${quote.error.message}`);
       }
       console.log('Quote received:', quote);
-  
+      
       // Get the user's signer and address
       let senderStuff: TransferStuff<Network, Chain>;
       let receiverStuff: TransferStuff<Network, Chain>;
