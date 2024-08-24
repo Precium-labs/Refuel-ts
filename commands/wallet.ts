@@ -235,6 +235,7 @@ module.exports = (bot: Telegraf<Context>) => {
         [
           Markup.button.callback(`⛽Refuel`, 'refuel'),
           Markup.button.callback(`👜Wallet`, 'wallet'),
+          Markup.button.callback(`Transfer`, 'transfer'),
         ],
         [
           Markup.button.callback(`🆘Help`, 'help'),

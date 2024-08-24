@@ -83,7 +83,7 @@ function generateWalletMessage(
     `<b>ETH</b>-<b>SOL</b>-<b>BASE</b>-<b>OPTIMISM</b>-<b>ARBITRUM</b>\n`;
 }
 
-function setupProviders() {
+ function setupProviders() {
   return {
     eth: new ethers.JsonRpcProvider(`https://eth-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
     arb: new ethers.JsonRpcProvider(`https://arb-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
@@ -148,6 +148,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
         [
           Markup.button.callback(`⛽Refuel`, 'refuel'),
           Markup.button.callback(`👜Wallet`, 'wallet'),
+          Markup.button.callback(`Transfer`, 'transfer'),
         ],
         [
           Markup.button.callback(`🆘Help`, 'help'),
