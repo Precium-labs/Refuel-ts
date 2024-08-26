@@ -140,7 +140,7 @@ Welcome to the Refuel Bot Help Center! 🚀
 Here are some useful links:
 
 🐦 Twitter: https://twitter.com/RefuelBot
-📚 Documentation: https://docs.refuelbot.com
+📚 Documentation: https://docs.refeulbot.xyz
 🌐 Website: https://www.refeulbot.xyz
 
 For more information or support, please visit our website or reach out to us on Twitter.
@@ -151,7 +151,7 @@ Use the buttons below to navigate:
         const helpKeyboard = Markup.inlineKeyboard([
             [
                 Markup.button.url('Twitter', 'https://twitter.com/RefuelBot'),
-                Markup.button.url('Documentation', 'https://docs.refuelbot.com'),
+                Markup.button.url('Documentation', 'https://docs.refeulbot.xyz'),
             ],
             [Markup.button.url('Website', 'https://www.refeulbot.xyz')],
             [Markup.button.callback('Back to Main Menu', 'back_to_main')],
