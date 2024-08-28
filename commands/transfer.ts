@@ -114,7 +114,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
             SUPPORTED_CHAINS.map(chain => [Markup.button.callback(`transfer_${chain}`, `select_chain_${chain}`)])
         );
     
-        await ctx.reply('Transfer process started. Select the chain you want to transfer from:', chainKeyboard);
+        await ctx.reply('Transfer process started. Select the chain you want to transfer from (This is Transfer Not Bridge):', chainKeyboard);
     });
 
     // Handle chain selection
