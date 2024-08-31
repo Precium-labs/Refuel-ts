@@ -155,7 +155,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
           Markup.button.callback(`⚙️Settings`, 'settings'),
         ],
         [
-          Markup.button.callback(`👥Refer Friends`, 'refferal'),
+          Markup.button.callback(`👥Refer Friends`, 'referral'),
         ],
         [
           Markup.button.callback(`♻️Refresh`, 'refresh'),

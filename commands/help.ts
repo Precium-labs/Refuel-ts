@@ -190,7 +190,7 @@ Use the buttons below to navigate:
                     Markup.button.callback(`⚙️Settings`, 'settings'),
                 ],
                 [
-                    Markup.button.callback(`👥Refer Friends`, 'refferal'),
+                    Markup.button.callback(`👥Refer Friends`, 'referral'),
                 ],
                 [
                     Markup.button.callback(`♻️Refresh`, 'refresh'),
