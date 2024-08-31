@@ -10,10 +10,17 @@ import { Markup, Telegraf } from 'telegraf';
 import { MyContext } from '../index';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
+import { ReferrerAddresses } from '@mayanfinance/swap-sdk'
+
+class MayanRefRoute<N extends Network> extends MayanRoute<N> {
+   override referrerAddress(): ReferrerAddresses | undefined {
+     return { evm: "0x408AAaCD1bb5Cf55E4bC615F7EC3f5463e56D1C4" };
+  }
+ }
 
 // Setup Wormhole
 const wh = new Wormhole("Mainnet", [EvmPlatform, SolanaPlatform]);
-const resolver = wh.resolver([MayanRoute]);
+const resolver = wh.resolver([MayanRefRoute]);
 
 interface ChainInfo {
   name: string;
