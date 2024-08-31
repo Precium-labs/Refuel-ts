@@ -96,22 +96,33 @@ async function fetchBalances(providers: any, evmWallet: WalletData, solanaWallet
     }
 }
 
-let transferInProgress = false;
-
 module.exports = (bot: Telegraf<MyContext>) => {
-    let selectedChain: string | null = null;
-    let amountUSD: number | null = null;
-    let recipientAddress: string | null = null;
+    let transferState: {
+        userId: number | null,
+        selectedChain: string | null,
+        amountUSD: number | null,
+        recipientAddress: string | null,
+        stage: 'chain' | 'amount' | 'address' | null
+    } = {
+        userId: null,
+        selectedChain: null,
+        amountUSD: null,
+        recipientAddress: null,
+        stage: null
+    };
 
     // Start the transfer process
     bot.action('transfer', async (ctx) => {
-        selectedChain = null;
-        amountUSD = null;
-        recipientAddress = null;
-        transferInProgress = true;
+        transferState = {
+            userId: ctx.from?.id || null,
+            selectedChain: null,
+            amountUSD: null,
+            recipientAddress: null,
+            stage: 'chain'
+        };
     
         const chainKeyboard = Markup.inlineKeyboard(
-            SUPPORTED_CHAINS.map(chain => [Markup.button.callback(`transfer_${chain}`, `select_chain_${chain}`)])
+            SUPPORTED_CHAINS.map(chain => [Markup.button.callback(`Transfer ${chain}`, `select_chain_${chain}`)])
         );
     
         await ctx.reply('Transfer process started. Select the chain you want to transfer from (This is Transfer Not Bridge):', chainKeyboard);
@@ -120,55 +131,56 @@ module.exports = (bot: Telegraf<MyContext>) => {
     // Handle chain selection
     SUPPORTED_CHAINS.forEach(chain => {
         bot.action(`select_chain_${chain}`, async (ctx) => {
-            selectedChain = chain;
+            if (ctx.from?.id !== transferState.userId) return;
+
+            transferState.selectedChain = chain;
+            transferState.stage = 'amount';
             await ctx.answerCbQuery(`${chain} selected`);
-            await ctx.reply('Enter the amount you want to send in USD (format: /amount 100):');
+            await ctx.reply('Enter the amount you want to send in USD:');
         });
     });
 
-    // Handle amount input
-    bot.command('amount', async (ctx) => {
-        if (!transferInProgress) return;
+    // Handle user messages for amount and address input
+    bot.on('text', async (ctx) => {
+        if (ctx.from.id !== transferState.userId) return;
 
-        const amount = parseFloat(ctx.message.text.split(' ')[1]);
-        if (isNaN(amount) || amount <= 0) {
-            await ctx.reply('Please enter a valid positive number for the amount.');
-            return;
+        if (transferState.stage === 'amount') {
+            const amount = parseFloat(ctx.message.text);
+            if (isNaN(amount) || amount <= 0) {
+                await ctx.reply('Please enter a valid positive number for the amount.');
+                return;
+            }
+            transferState.amountUSD = amount;
+            transferState.stage = 'address';
+            await ctx.reply('Enter the recipient address:');
+        } else if (transferState.stage === 'address') {
+            const address = ctx.message.text;
+            if (!isValidAddress(address, transferState.selectedChain!)) {
+                await ctx.reply('Invalid address. Please enter a valid address for the selected chain.');
+                return;
+            }
+            transferState.recipientAddress = address;
+            await initiateTransfer(ctx);
         }
-        amountUSD = amount;
-        await ctx.reply('Enter the recipient address (format: /address 0x...):');
-    });
-
-    // Handle address input
-    bot.command('address', async (ctx) => {
-        if (!transferInProgress) return;
-
-        const address = ctx.message.text.split(' ')[1];
-        if (!isValidAddress(address, selectedChain!)) {
-            await ctx.reply('Invalid address. Please enter a valid address for the selected chain.');
-            return;
-        }
-        recipientAddress = address;
-        await initiateTransfer(ctx);
     });
 
     // Cancel transfer process
     bot.command('cancel_transfer', async (ctx) => {
-        if (transferInProgress) {
-            transferInProgress = false;
-            selectedChain = null;
-            amountUSD = null;
-            recipientAddress = null;
+        if (transferState.userId === ctx.from.id && transferState.stage !== null) {
+            resetTransferState();
             await ctx.reply('Transfer process cancelled.');
         } else {
-            await ctx.reply('No transfer process is currently active.');
+            await ctx.reply('No transfer process is currently active for you.');
         }
     });
 
     async function initiateTransfer(ctx: MyContext) {
         try {
+            const { selectedChain, amountUSD, recipientAddress } = transferState;
             const telegramId = ctx.from?.id.toString();
-            if (!telegramId) throw new Error('Telegram ID not found');
+            if (!telegramId || !selectedChain || !amountUSD || !recipientAddress) {
+                throw new Error('Missing transfer information');
+            }
 
             const providers = setupProviders();
             const prices = await fetchPrices();
@@ -189,21 +201,22 @@ module.exports = (bot: Telegraf<MyContext>) => {
             // Convert USD to native token amount
             let nativeAmount: number;
             if (selectedChain === 'SOL') {
-                nativeAmount = amountUSD! / prices.sol;
+                nativeAmount = amountUSD / prices.sol;
             } else {
-                nativeAmount = amountUSD! / prices.eth;
+                nativeAmount = amountUSD / prices.eth;
             }
 
             // Check if user has sufficient balance
             const balances = await fetchBalances(providers, userWalletData.evm_wallet, userWalletData.solana_wallet);
-            const userBalance = getBalanceForChain(balances, selectedChain!);
+            const userBalance = getBalanceForChain(balances, selectedChain);
             if (userBalance < nativeAmount) {
                 await ctx.reply(`Insufficient balance. You have ${userBalance.toFixed(6)} ${selectedChain} but are trying to send ${nativeAmount.toFixed(6)} ${selectedChain}.`);
+                resetTransferState();
                 return;
             }
 
             // Perform the transfer
-            const txHash = await performTransfer(selectedChain!, fromAddress, recipientAddress!, nativeAmount, privateKey, providers);
+            const txHash = await performTransfer(selectedChain, fromAddress, recipientAddress, nativeAmount, privateKey, providers);
 
             await ctx.reply(`Transfer initiated!\nFrom: ${fromAddress}\nTo: ${recipientAddress}\nAmount: $${amountUSD} (${nativeAmount.toFixed(6)} ${selectedChain})\nTransaction Hash: ${txHash}`);
 
@@ -213,10 +226,17 @@ module.exports = (bot: Telegraf<MyContext>) => {
         }
 
         // Reset the state
-        selectedChain = null;
-        amountUSD = null;
-        recipientAddress = null;
-        transferInProgress = false;
+        resetTransferState();
+    }
+
+    function resetTransferState() {
+        transferState = {
+            userId: null,
+            selectedChain: null,
+            amountUSD: null,
+            recipientAddress: null,
+            stage: null
+        };
     }
 
     function isValidAddress(address: string, chain: string): boolean {
