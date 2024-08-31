@@ -146,7 +146,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
 
       const Homekeyboard = Markup.inlineKeyboard([
         [
-          Markup.button.callback(`⛽Refuel`, 'refuel'),
+          Markup.button.callback(`⛽Refuel(Bridge)`, 'refuel'),
           Markup.button.callback(`👜Wallet`, 'wallet'),
           Markup.button.callback(`Transfer`, 'transfer'),
         ],
