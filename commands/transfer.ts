@@ -3,24 +3,19 @@ import { ethers } from 'ethers';
 import { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction, Keypair, clusterApiUrl } from '@solana/web3.js';
 import axios from 'axios';
 import { MyContext } from '../index';
-
 const SUPPORTED_CHAINS = ['SOL', 'ETH', 'BASE', 'ARB', 'OPTIMISM'];
-
 interface WalletData {
     address: string;
     private_key: string;
 }
-
 interface UserWalletData {
     evm_wallet: WalletData;
     solana_wallet: WalletData;
 }
-
 interface Prices {
     eth: number;
     sol: number;
 }
-
 interface Balances {
     eth: bigint;
     arb: bigint;
@@ -28,7 +23,6 @@ interface Balances {
     opt: bigint;
     sol: number;
 }
-
 function setupProviders() {
     return {
         eth: new ethers.JsonRpcProvider(`https://eth-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
@@ -38,7 +32,6 @@ function setupProviders() {
         sol: new Connection(clusterApiUrl('mainnet-beta'), 'confirmed')
     };
 }
-
 async function fetchPrices(): Promise<Prices> {
     try {
         const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=ethereum,solana&vs_currencies=usd');
@@ -51,7 +44,6 @@ async function fetchPrices(): Promise<Prices> {
         return { eth: 0, sol: 0 };
     }
 }
-
 async function fetchBalances(providers: any, evmWallet: WalletData, solanaWallet: WalletData): Promise<Balances> {
     try {
         const [ethBalance, arbBalance, baseBalance, optBalance, solBalance] = await Promise.all([
@@ -76,7 +68,6 @@ async function fetchBalances(providers: any, evmWallet: WalletData, solanaWallet
                 return 0;
             }),
         ]);
-
         return {
             eth: ethBalance,
             arb: arbBalance,
@@ -95,14 +86,11 @@ async function fetchBalances(providers: any, evmWallet: WalletData, solanaWallet
         };
     }
 }
-
 let transferInProgress = false;
-
 module.exports = (bot: Telegraf<MyContext>) => {
     let selectedChain: string | null = null;
     let amountUSD: number | null = null;
     let recipientAddress: string | null = null;
-
     // Start the transfer process
     bot.action('transfer', async (ctx) => {
         selectedChain = null;
@@ -113,8 +101,9 @@ module.exports = (bot: Telegraf<MyContext>) => {
         const chainKeyboard = Markup.inlineKeyboard(
             SUPPORTED_CHAINS.map(chain => [Markup.button.callback(`transfer_${chain}`, `select_chain_${chain}`)])
         );
-    
-        await ctx.reply('Transfer process started. Select the chain you want to transfer from:', chainKeyboard);
+
+
+        await ctx.reply('Transfer process started. Select the chain you want to transfer from (This is Transfer Not Bridge):', chainKeyboard);
     });
 
     // Handle chain selection
@@ -125,11 +114,9 @@ module.exports = (bot: Telegraf<MyContext>) => {
             await ctx.reply('Enter the amount you want to send in USD (format: /amount 100):');
         });
     });
-
     // Handle amount input
     bot.command('amount', async (ctx) => {
         if (!transferInProgress) return;
-
         const amount = parseFloat(ctx.message.text.split(' ')[1]);
         if (isNaN(amount) || amount <= 0) {
             await ctx.reply('Please enter a valid positive number for the amount.');
@@ -138,11 +125,9 @@ module.exports = (bot: Telegraf<MyContext>) => {
         amountUSD = amount;
         await ctx.reply('Enter the recipient address (format: /address 0x...):');
     });
-
     // Handle address input
     bot.command('address', async (ctx) => {
         if (!transferInProgress) return;
-
         const address = ctx.message.text.split(' ')[1];
         if (!isValidAddress(address, selectedChain!)) {
             await ctx.reply('Invalid address. Please enter a valid address for the selected chain.');
@@ -151,7 +136,6 @@ module.exports = (bot: Telegraf<MyContext>) => {
         recipientAddress = address;
         await initiateTransfer(ctx);
     });
-
     // Cancel transfer process
     bot.command('cancel_transfer', async (ctx) => {
         if (transferInProgress) {
@@ -164,19 +148,15 @@ module.exports = (bot: Telegraf<MyContext>) => {
             await ctx.reply('No transfer process is currently active.');
         }
     });
-
     async function initiateTransfer(ctx: MyContext) {
         try {
             const telegramId = ctx.from?.id.toString();
             if (!telegramId) throw new Error('Telegram ID not found');
-
             const providers = setupProviders();
             const prices = await fetchPrices();
-
             // Fetch user's wallet data
             const response = await axios.get(`https://refuel-database.onrender.com/api/refuel/wallet/${telegramId}`);
             const userWalletData: UserWalletData = response.data;
-
             let fromAddress: string, privateKey: string;
             if (selectedChain === 'SOL') {
                 fromAddress = userWalletData.solana_wallet.address;
@@ -185,7 +165,6 @@ module.exports = (bot: Telegraf<MyContext>) => {
                 fromAddress = userWalletData.evm_wallet.address;
                 privateKey = userWalletData.evm_wallet.private_key;
             }
-
             // Convert USD to native token amount
             let nativeAmount: number;
             if (selectedChain === 'SOL') {
@@ -193,7 +172,6 @@ module.exports = (bot: Telegraf<MyContext>) => {
             } else {
                 nativeAmount = amountUSD! / prices.eth;
             }
-
             // Check if user has sufficient balance
             const balances = await fetchBalances(providers, userWalletData.evm_wallet, userWalletData.solana_wallet);
             const userBalance = getBalanceForChain(balances, selectedChain!);
@@ -201,24 +179,19 @@ module.exports = (bot: Telegraf<MyContext>) => {
                 await ctx.reply(`Insufficient balance. You have ${userBalance.toFixed(6)} ${selectedChain} but are trying to send ${nativeAmount.toFixed(6)} ${selectedChain}.`);
                 return;
             }
-
             // Perform the transfer
             const txHash = await performTransfer(selectedChain!, fromAddress, recipientAddress!, nativeAmount, privateKey, providers);
-
             await ctx.reply(`Transfer initiated!\nFrom: ${fromAddress}\nTo: ${recipientAddress}\nAmount: $${amountUSD} (${nativeAmount.toFixed(6)} ${selectedChain})\nTransaction Hash: ${txHash}`);
-
         } catch (error) {
             console.error('Error in initiateTransfer:', error);
             await ctx.reply('An error occurred while initiating the transfer. Please try again later.');
         }
-
         // Reset the state
         selectedChain = null;
         amountUSD = null;
         recipientAddress = null;
         transferInProgress = false;
     }
-
     function isValidAddress(address: string, chain: string): boolean {
         if (chain === 'SOL') {
             try {
@@ -231,7 +204,6 @@ module.exports = (bot: Telegraf<MyContext>) => {
             return ethers.isAddress(address);
         }
     }
-
     async function performTransfer(chain: string, from: string, to: string, amount: number, privateKey: string, providers: any): Promise<string> {
         switch (chain) {
             case 'SOL':
@@ -248,13 +220,11 @@ module.exports = (bot: Telegraf<MyContext>) => {
                 throw new Error('Unsupported chain');
         }
     }
-
     async function transferSOL(from: string, to: string, amount: number, privateKey: string, connection: Connection): Promise<string> {
         const privateKeyUint8Array = new Uint8Array(Buffer.from(privateKey, 'hex'));
         const fromKeypair = Keypair.fromSecretKey(privateKeyUint8Array);
         const fromPublicKey = new PublicKey(from);
         const toPublicKey = new PublicKey(to);
-
         const transaction = new Transaction().add(
             SystemProgram.transfer({
                 fromPubkey: fromPublicKey,
@@ -262,28 +232,22 @@ module.exports = (bot: Telegraf<MyContext>) => {
                 lamports: Math.round(amount * 1e9), // Convert SOL to lamports
             })
         );
-
         const signature = await sendAndConfirmTransaction(
             connection,
             transaction,
             [fromKeypair]
         );
-
         return signature;
     }
-
     async function transferEVM(from: string, to: string, amount: number, privateKey: string, provider: ethers.JsonRpcProvider): Promise<string> {
         const wallet = new ethers.Wallet(privateKey, provider);
-
         const tx = await wallet.sendTransaction({
             to: to,
             value: ethers.parseEther(amount.toString())
         });
-
         await tx.wait();
         return tx.hash;
     }
-
     function getBalanceForChain(balances: any, chain: string): number {
         switch (chain) {
             case 'SOL':
