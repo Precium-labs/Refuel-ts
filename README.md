@@ -12,7 +12,9 @@ Welcome to Refuel Bot, an advanced Telegram bot designed to streamline cross-cha
 5. **Real-time Transaction Tracking**: Offers live updates on the status of your cross-chain transfers.
 
 ## How It Works
-![Refuel Bot UML](images/Screenshot from 2024-09-01 20-45-08.png)### Wormhole SDK
+![Refuel Bot UML](images/uml.png)
+
+### Wormhole SDK
 
 The Wormhole SDK is at the core of Refuel Bot's functionality. It enables:
 
