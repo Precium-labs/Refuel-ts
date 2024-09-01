@@ -43,12 +43,14 @@ function generateReferralMessage(username: string, referralInfo: ReferralInfo): 
 Share your referral code with friends and earn rewards when they join!`;
 }
 
-module.exports = (bot: Telegraf<MyContext>) => {
-    bot.command('referral', async (ctx) => {
+
+
+export function setupReferral(bot: Telegraf<MyContext>) {
+    bot.action('referral', async (ctx) => {
         try {
             const telegramId = ctx.from?.id.toString() || '';
             const username = ctx.from?.username || 'User';
-
+            console.log("referral",username)
             const referralInfo = await getReferralInfo(telegramId);
             const message = generateReferralMessage(username, referralInfo);
 
@@ -156,7 +158,6 @@ module.exports = (bot: Telegraf<MyContext>) => {
         }
     });
 
-    // Add this to handle referral code inputs
     bot.on('text', async (ctx) => {
         const text = ctx.message.text;
         if (text.startsWith('/start ')) {
@@ -174,4 +175,4 @@ module.exports = (bot: Telegraf<MyContext>) => {
             }
         }
     });
-};
+}
