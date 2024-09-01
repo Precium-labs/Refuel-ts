@@ -159,31 +159,31 @@ async function processReferral(referralCode: string, telegramId: string) {
 }
 
 module.exports = (bot: Telegraf<MyContext>) => {
-bot.start(async (ctx) => {
-  try {
-    const firstName = ctx.from?.username || 'User';
-    const telegramId = ctx.from?.id.toString() || '';
-    console.log('Telegram ID:', telegramId);
+  bot.start(async (ctx) => {
+    try {
+      const firstName = ctx.from?.username || 'User';
+      const telegramId = ctx.from?.id.toString() || '';
+      console.log('Telegram ID:', telegramId);
 
-    // Check if the start command includes a referral code
-    const startPayload = ctx.startPayload;
-    if (startPayload) {
-      try {
-        // Generate the user's own referral code
-        const userReferralCode = await generateReferralCode(telegramId);
-        
-        // Check if the user is trying to use their own referral code
-        if (startPayload === userReferralCode) {
-          await ctx.reply("You can't refer yourself. Share your referral link with others!");
-        } else {
-          await processReferral(startPayload, telegramId);
-          await ctx.reply(`Welcome, ${firstName}! You've been referred by a friend.`);
+      // Check if the start command includes a referral code
+      const startPayload = ctx.startPayload;
+      if (startPayload) {
+        try {
+          // Generate the user's own referral code
+          const userReferralCode = await generateReferralCode(telegramId);
+          
+          // Check if the user is trying to use their own referral code
+          if (startPayload === userReferralCode) {
+            await ctx.reply("You can't refer yourself. Share your referral link with others!");
+          } else {
+            await processReferral(startPayload, telegramId);
+            await ctx.reply(`Welcome, ${firstName}! You've been referred by a friend.`);
+          }
+        } catch (error) {
+          console.error('Error processing referral:', error);
+          // Continue with normal start process even if referral processing fails
         }
-      } catch (error) {
-        console.error('Error processing referral:', error);
-        // Continue with normal start process even if referral processing fails
       }
-    }
       const Homekeyboard = Markup.inlineKeyboard([
         [
           Markup.button.callback(`⛽Refuel(Bridge)`, 'refuel'),
