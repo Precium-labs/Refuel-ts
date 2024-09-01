@@ -1,5 +1,5 @@
 # Refuel Bot (Wormhole SDK & Mayan Route Bridge)
-
+![Refuel Bot Logo](images/refuel.jpg)
 Welcome to Refuel Bot, an advanced Telegram bot designed to streamline cross-chain asset transfers between EVM-compatible chains and Solana. By leveraging the Wormhole SDK and Mayan Route Bridge, Refuel Bot ensures seamless and efficient token bridging across different blockchain ecosystems.
 
 ## Key Features
