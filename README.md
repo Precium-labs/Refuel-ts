@@ -40,6 +40,10 @@ The Telegram bot provides a user-friendly interface for:
 
 ## Getting Started
 
+<div align="center">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/jVBl_hftrTM" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</div>
+
 To start using Refuel Bot, follow these steps:
 
 1. **Add the Bot**: Search for [@RefuelPreciumbot](https://t.me/RefuelPreciumbot) on Telegram and start a chat.
