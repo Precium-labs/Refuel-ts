@@ -437,6 +437,9 @@ export class MayanRoute<N extends Network>
     }
 
     referrerAddress(): ReferrerAddresses | undefined {
-        return undefined;
+        return {
+            solana: "EFFkREkW7DjubGzkXAYt3xCqz4rWuLJjY1L2yD9Mtuym",
+            evm: "0x9319b3c6B01df3e375abdB3Be42DA19C558D3E69"
+        };;
     }
 }

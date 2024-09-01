@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Markup, Telegraf } from 'telegraf';
-import { Message } from 'telegraf/types';
 import { MyContext } from '../index';
+import { setupProviders, fetchBalances, fetchPrices, generateWalletMessage } from './start';
 
 interface ReferralInfo {
     referralCode: string;
@@ -9,13 +9,13 @@ interface ReferralInfo {
     rewardsEarned: number;
 }
 
-async function getReferralInfo(telegramId: string): Promise<ReferralInfo> {
+async function generateReferralCode(telegramId: string): Promise<string> {
     try {
-        const response = await axios.get(`https://refuel-database.onrender.com/api/refuel/referral/${telegramId}`);
-        return response.data;
+        const response = await axios.post(`https://refuel-database.onrender.com/api/refuel/wallet/generateRefferal/${telegramId}`);
+        return response.data.referral_code;
     } catch (error) {
-        console.error('Error fetching referral info:', error);
-        throw new Error('Failed to retrieve referral information');
+        console.error('Error generating referral code:', error);
+        throw new Error('Failed to generate referral code');
     }
 }
 
@@ -25,116 +25,123 @@ async function processReferral(referralCode: string, telegramId: string): Promis
         return response.data.message;
     } catch (error) {
         console.error('Error processing referral:', error);
-        if (axios.isAxiosError(error) && error.response) {
-            throw new Error(error.response.data.error || 'Failed to process referral');
-        }
         throw new Error('Failed to process referral');
     }
 }
 
-function generateReferralMessage(username: string, referralInfo: ReferralInfo): string {
-    return `Hey @${username}! Here's your referral information:
-
-🔗 Your Referral Code: <code>${referralInfo.referralCode}</code>
-
-👥 Total Referrals: ${referralInfo.referralCount}
-💰 Rewards Earned: ${referralInfo.rewardsEarned} tokens
-
-Share your referral code with friends and earn rewards when they join!`;
+async function getReferralInfo(telegramId: string): Promise<ReferralInfo> {
+    try {
+        const response = await axios.get(`https://refuel-database.onrender.com/api/refuel/wallet/referral/${telegramId}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching referral info:', error);
+        throw new Error('Failed to fetch referral info');
+    }
 }
 
-
-
-export function setupReferral(bot: Telegraf<MyContext>) {
+export function setupReferralSystem(bot: Telegraf<MyContext>) {
     bot.action('referral', async (ctx) => {
         try {
             const telegramId = ctx.from?.id.toString() || '';
-            const username = ctx.from?.username || 'User';
-            console.log("referral",username)
-            const referralInfo = await getReferralInfo(telegramId);
-            const message = generateReferralMessage(username, referralInfo);
+            const firstName = ctx.from?.username || 'User';
+            const botUsername = ctx.botInfo.username;
 
-            const referralKeyboard = Markup.inlineKeyboard([
-                [Markup.button.callback('📢 Share Referral Code', 'share_referral')],
-                [Markup.button.callback('🔄 Refresh Referral Info', 'refresh_referral')],
-                [Markup.button.callback('🏠 Back to Main Menu', 'back_to_main')]
-            ]);
-
-            await ctx.reply(message, { parse_mode: 'HTML', ...referralKeyboard });
-        } catch (error) {
-            console.error('Error handling /referral command:', error);
-            await ctx.reply('An error occurred while fetching your referral information. Please try again later.');
-        }
-    });
-
-    bot.action('share_referral', async (ctx) => {
-        try {
-            const telegramId = ctx.from?.id.toString() || '';
-            const referralInfo = await getReferralInfo(telegramId);
-            const shareMessage = `Join me on Refuel Bot! Use my referral code: ${referralInfo.referralCode}`;
-            await ctx.answerCbQuery('Referral code copied! Share it with your friends.');
-            await ctx.reply(shareMessage, { reply_markup: { inline_keyboard: [[Markup.button.callback('Done Sharing', 'back_to_referral')]] } });
-        } catch (error) {
-            console.error('Error sharing referral code:', error);
-            await ctx.answerCbQuery('Failed to share referral code. Please try again.');
-        }
-    });
-
-    bot.action('refresh_referral', async (ctx) => {
-        try {
-            const telegramId = ctx.from?.id.toString() || '';
-            const username = ctx.from?.username || 'User';
-
-            const referralInfo = await getReferralInfo(telegramId);
-            const message = generateReferralMessage(username, referralInfo);
-
-            await ctx.answerCbQuery('Referral information refreshed');
-
-            if (ctx.callbackQuery && 'message' in ctx.callbackQuery) {
-                const originalMessage = ctx.callbackQuery.message as Message.TextMessage;
-                if (originalMessage && originalMessage.reply_markup) {
-                    await ctx.editMessageText(message, {
-                        parse_mode: 'HTML',
-                        reply_markup: originalMessage.reply_markup
-                    });
-                } else {
-                    await ctx.editMessageText(message, { parse_mode: 'HTML' });
-                }
+            let referralInfo: ReferralInfo;
+            try {
+                referralInfo = await getReferralInfo(telegramId);
+            } catch (error) {
+                console.log('Referral info not found, generating new referral code...');
+                const newReferralCode = await generateReferralCode(telegramId);
+                referralInfo = {
+                    referralCode: newReferralCode,
+                    referralCount: 0,
+                    rewardsEarned: 0
+                };
             }
+
+            const referralLink = `https://t.me/${botUsername}?start=${referralInfo.referralCode}`;
+
+            const referralMessage = `
+@${firstName}, here's your referral information:
+
+📊 Your Referral Code: <code>${referralInfo.referralCode}</code>
+🔗 Your Referral Link: ${referralLink}
+👥 Total Referrals: ${referralInfo.referralCount}
+💰 Rewards Earned: ${referralInfo.rewardsEarned} tokens
+
+Share your referral link with friends and earn rewards when they join!
+`;
+
+            const referralKeyboard = Markup.inlineKeyboard([
+                [Markup.button.url('Share Referral Link', referralLink)],
+                [Markup.button.callback('🔙 Back to Main Menu', 'back_to_main')],
+            ]);
+
+            await ctx.editMessageText(referralMessage, {
+                parse_mode: 'HTML',
+                link_preview_options: { is_disabled: true },
+                ...referralKeyboard
+            });
         } catch (error) {
-            console.error('Error refreshing referral info:', error);
-            await ctx.answerCbQuery('Failed to refresh referral information. Please try again.');
+            console.error('Error in referral handler:', error);
+            let errorMessage = 'An error occurred while fetching referral information. Please try again later.';
+            if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+            await ctx.answerCbQuery(errorMessage);
         }
     });
 
-    bot.action('back_to_referral', async (ctx) => {
+    // bot.command('start', async (ctx) => {
+    //     const startPayload = ctx.message.text.split(' ')[1];
+    //     if (startPayload) {
+    //         // This is a referral link
+    //         const telegramId = ctx.from.id.toString();
+    //         try {
+    //             const message = await processReferral(startPayload, telegramId);
+    //             await ctx.reply(message);
+    //         } catch (error) {
+    //             console.error('Error processing referral:', error);
+    //             await ctx.reply('Sorry, there was an error processing the referral. Please try again later.');
+    //         }
+    //     }
+    // });
+
+    bot.command('use_referral', async (ctx) => {
+        const telegramId = ctx.from.id.toString();
+        const referralCode = ctx.message.text.split(' ')[1];
+
+        if (!referralCode) {
+            await ctx.reply('Please provide a referral code. Usage: /use_referral CODE');
+            return;
+        }
+
         try {
-            const telegramId = ctx.from?.id.toString() || '';
-            const username = ctx.from?.username || 'User';
-
-            const referralInfo = await getReferralInfo(telegramId);
-            const message = generateReferralMessage(username, referralInfo);
-
-            const referralKeyboard = Markup.inlineKeyboard([
-                [Markup.button.callback('📢 Share Referral Code', 'share_referral')],
-                [Markup.button.callback('🔄 Refresh Referral Info', 'refresh_referral')],
-                [Markup.button.callback('🏠 Back to Main Menu', 'back_to_main')]
-            ]);
-
-            await ctx.editMessageText(message, { parse_mode: 'HTML', ...referralKeyboard });
+            const message = await processReferral(referralCode, telegramId);
+            await ctx.reply(message);
         } catch (error) {
-            console.error('Error going back to referral menu:', error);
-            await ctx.answerCbQuery('Failed to return to referral menu. Please try again.');
+            console.error('Error processing referral:', error);
+            await ctx.reply('Sorry, there was an error processing the referral. Please check the code and try again.');
         }
     });
 
     bot.action('back_to_main', async (ctx) => {
         try {
-            const mainMenuMessage = `Welcome to Refuel Bot ⛽️\n\nWhat would you like to do?`;
+            const telegramId = ctx.from?.id.toString() || '';
+            const firstName = ctx.from?.username || 'User';
 
-            const mainMenuKeyboard = Markup.inlineKeyboard([
+            const response = await axios.get(`https://refuel-database.onrender.com/api/refuel/wallet/${telegramId}`);
+            const userWalletData = response.data;
+
+            const providers = setupProviders();
+            const balances = await fetchBalances(providers, userWalletData.evm_wallet, userWalletData.solana_wallet);
+            const prices = await fetchPrices();
+
+            const message = generateWalletMessage(firstName, userWalletData.evm_wallet, userWalletData.solana_wallet, balances, prices);
+
+            const homeKeyboard = Markup.inlineKeyboard([
                 [
-                    Markup.button.callback(`⛽Refuel`, 'refuel'),
+                    Markup.button.callback(`⛽Refuel(Bridge)`, 'refuel'),
                     Markup.button.callback(`👜Wallet`, 'wallet'),
                     Markup.button.callback(`Transfer`, 'transfer'),
                 ],
@@ -150,29 +157,19 @@ export function setupReferral(bot: Telegraf<MyContext>) {
                 ],
             ]);
 
-            await ctx.answerCbQuery('Returning to main menu');
-            await ctx.editMessageText(mainMenuMessage, { parse_mode: 'HTML', ...mainMenuKeyboard });
+            await ctx.editMessageText(message, {
+                parse_mode: 'HTML',
+                ...homeKeyboard
+            });
         } catch (error) {
-            console.error('Error returning to main menu:', error);
-            await ctx.answerCbQuery('Error returning to main menu. Please try again.');
-        }
-    });
-
-    bot.on('text', async (ctx) => {
-        const text = ctx.message.text;
-        if (text.startsWith('/start ')) {
-            const referralCode = text.split(' ')[1];
-            const telegramId = ctx.from.id.toString();
-            try {
-                const message = await processReferral(referralCode, telegramId);
-                await ctx.reply(message);
-            } catch (error) {
-                if (error instanceof Error) {
-                    await ctx.reply(error.message);
-                } else {
-                    await ctx.reply('An error occurred while processing the referral.');
-                }
+            console.error('Error in back_to_main handler:', error);
+            let errorMessage = 'An error occurred while returning to the main menu. Please try again later.';
+            if (error instanceof Error) {
+                errorMessage = error.message;
             }
+            await ctx.answerCbQuery(errorMessage);
         }
     });
 }
+
+export { processReferral };

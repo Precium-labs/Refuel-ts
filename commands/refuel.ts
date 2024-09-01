@@ -14,7 +14,10 @@ import { ReferrerAddresses } from '@mayanfinance/swap-sdk'
 
 class MayanRefRoute<N extends Network> extends MayanRoute<N> {
    override referrerAddress(): ReferrerAddresses | undefined {
-     return { evm: "0x408AAaCD1bb5Cf55E4bC615F7EC3f5463e56D1C4" };
+     return {
+       solana: "EFFkREkW7DjubGzkXAYt3xCqz4rWuLJjY1L2yD9Mtuym",
+       evm: "0x9319b3c6B01df3e375abdB3Be42DA19C558D3E69" 
+    };
   }
  }
 

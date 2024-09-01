@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import axios from 'axios';
 import dotenv from 'dotenv';
+import { setupReferralSystem } from './commands/referral'; // Import the setupReferralSystem function
 
 dotenv.config();
 
@@ -26,6 +27,9 @@ commandFiles.forEach((file) => {
     command(bot);
   }
 });
+
+// Set up the referral system
+setupReferralSystem(bot);
 
 // Error handling middleware
 bot.catch((err: any, ctx: MyContext) => {
