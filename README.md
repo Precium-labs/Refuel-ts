@@ -40,8 +40,8 @@ The Telegram bot provides a user-friendly interface for:
 
 ## Getting Started
 
-[![Watch the video](https://img.youtube.com/vi/jVBl_hftrTM/maxresdefault.jpg)](https://www.youtube.com/watch?v=jVBl_hftrTM)
 
+[![Watch the video](images/refuel.jpg)](/images/-2052795888237864132.mp4)
 
 To start using Refuel Bot, follow these steps:
 
