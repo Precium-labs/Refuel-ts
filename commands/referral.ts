@@ -67,7 +67,7 @@ export function setupReferralSystem(bot: Telegraf<MyContext>) {
 📊 Your Referral Code: <code>${referralInfo.referralCode}</code>
 🔗 Your Referral Link: ${referralLink}
 👥 Total Referrals: ${referralInfo.referralCount}
-💰 Rewards Earned: ${referralInfo.rewardsEarned} tokens
+💰 Rewards Earned: ${referralInfo.rewardsEarned} Points
 
 Share your referral link with friends and earn rewards when they join!
 `;
