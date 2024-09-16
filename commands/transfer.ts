@@ -35,6 +35,13 @@ interface UserState {
     amountUSD?: number;
 }
 
+interface TransferResult {
+    success: boolean;
+    txHash: string;
+    explorerLink: string;
+    errorReason?: string;
+}
+
 const userStates: { [key: number]: UserState } = {};
 
 function setupProviders() {
@@ -202,8 +209,13 @@ async function initiateTransfer(ctx: MyContext, selectedChain: string, amountUSD
             return;
         }
         // Perform the transfer
-        const txHash = await performTransfer(selectedChain, fromAddress, recipientAddress, nativeAmount, privateKey, providers);
-        await ctx.reply(`Transfer initiated!\nFrom: ${fromAddress}\nTo: ${recipientAddress}\nAmount: $${amountUSD} (${nativeAmount.toFixed(6)} ${selectedChain})\nTransaction Hash: ${txHash}`);
+        const result = await performTransfer(selectedChain, fromAddress, recipientAddress, nativeAmount, privateKey, providers);
+        
+        if (result.success) {
+            await ctx.reply(`Transfer successful!\nFrom: ${fromAddress}\nTo: ${recipientAddress}\nAmount: $${amountUSD} (${nativeAmount.toFixed(6)} ${selectedChain})\nTransaction Hash: ${result.txHash}\nExplorer Link: ${result.explorerLink}`);
+        } else {
+            await ctx.reply(`Transfer failed.\nReason: ${result.errorReason}\nExplorer Link (if applicable): ${result.explorerLink}`);
+        }
     } catch (error) {
         console.error('Error in initiateTransfer:', error);
         await ctx.reply('An error occurred while initiating the transfer. Please try again later.');
@@ -223,51 +235,92 @@ function isValidAddress(address: string, chain: string): boolean {
     }
 }
 
-async function performTransfer(chain: string, from: string, to: string, amount: number, privateKey: string, providers: any): Promise<string> {
+async function performTransfer(chain: string, from: string, to: string, amount: number, privateKey: string, providers: any): Promise<TransferResult> {
     switch (chain) {
         case 'SOL':
             return await transferSOL(from, to, amount, privateKey, providers.sol);
         case 'ETH':
-            return await transferEVM(from, to, amount, privateKey, providers.eth);
+            return await transferEVM(from, to, amount, privateKey, providers.eth, 'https://etherscan.io/tx/');
         case 'BASE':
-            return await transferEVM(from, to, amount, privateKey, providers.base);
+            return await transferEVM(from, to, amount, privateKey, providers.base, 'https://basescan.org/tx/');
         case 'ARB':
-            return await transferEVM(from, to, amount, privateKey, providers.arb);
+            return await transferEVM(from, to, amount, privateKey, providers.arb, 'https://arbiscan.io/tx/');
         case 'OPTIMISM':
-            return await transferEVM(from, to, amount, privateKey, providers.opt);
+            return await transferEVM(from, to, amount, privateKey, providers.opt, 'https://optimistic.etherscan.io/tx/');
         default:
             throw new Error('Unsupported chain');
     }
 }
 
-async function transferSOL(from: string, to: string, amount: number, privateKey: string, connection: Connection): Promise<string> {
-    const privateKeyUint8Array = new Uint8Array(Buffer.from(privateKey, 'hex'));
-    const fromKeypair = Keypair.fromSecretKey(privateKeyUint8Array);
-    const fromPublicKey = new PublicKey(from);
-    const toPublicKey = new PublicKey(to);
-    const transaction = new Transaction().add(
-        SystemProgram.transfer({
-            fromPubkey: fromPublicKey,
-            toPubkey: toPublicKey,
-            lamports: Math.round(amount * 1e9), // Convert SOL to lamports
-        })
-    );
-    const signature = await sendAndConfirmTransaction(
-        connection,
-        transaction,
-        [fromKeypair]
-    );
-    return signature;
+async function transferSOL(from: string, to: string, amount: number, privateKey: string, connection: Connection): Promise<TransferResult> {
+    try {
+        const privateKeyUint8Array = new Uint8Array(Buffer.from(privateKey, 'hex'));
+        const fromKeypair = Keypair.fromSecretKey(privateKeyUint8Array);
+        const fromPublicKey = new PublicKey(from);
+        const toPublicKey = new PublicKey(to);
+        const transaction = new Transaction().add(
+            SystemProgram.transfer({
+                fromPubkey: fromPublicKey,
+                toPubkey: toPublicKey,
+                lamports: Math.round(amount * 1e9), // Convert SOL to lamports
+            })
+        );
+        const signature = await sendAndConfirmTransaction(
+            connection,
+            transaction,
+            [fromKeypair]
+        );
+        return {
+            success: true,
+            txHash: signature,
+            explorerLink: `https://explorer.solana.com/tx/${signature}`
+        };
+    } catch (error) {
+        console.error('Error in transferSOL:', error);
+        return {
+            success: false,
+            txHash: '',
+            explorerLink: '',
+            errorReason: error instanceof Error ? error.message : 'Unknown error occurred'
+        };
+    }
 }
 
-async function transferEVM(from: string, to: string, amount: number, privateKey: string, provider: ethers.JsonRpcProvider): Promise<string> {
-    const wallet = new ethers.Wallet(privateKey, provider);
-    const tx = await wallet.sendTransaction({
-        to: to,
-        value: ethers.parseEther(amount.toString())
-    });
-    await tx.wait();
-    return tx.hash;
+async function transferEVM(from: string, to: string, amount: number, privateKey: string, provider: ethers.JsonRpcProvider, explorerBaseUrl: string): Promise<TransferResult> {
+    try {
+        const wallet = new ethers.Wallet(privateKey, provider);
+        const tx = await wallet.sendTransaction({
+            to: to,
+            value: ethers.parseEther(amount.toString())
+        });
+        const receipt = await tx.wait();
+        
+        if (receipt && receipt.status === 1) {
+            return {
+                success: true,
+                txHash: tx.hash,
+                explorerLink: `${explorerBaseUrl}${tx.hash}`
+            };
+        } else {
+            throw new Error('Transaction failed');
+        }
+    } catch (error) {
+        console.error('Error in transferEVM:', error);
+        let errorReason = 'Unknown error occurred';
+        if (error instanceof Error) {
+            if (error.message.includes('insufficient funds')) {
+                errorReason = 'Insufficient funds for transfer';
+            } else {
+                errorReason = error.message;
+            }
+        }
+        return {
+            success: false,
+            txHash: '',
+            explorerLink: '',
+            errorReason: errorReason
+        };
+    }
 }
 
 function getBalanceForChain(balances: Balances, chain: string): number {
