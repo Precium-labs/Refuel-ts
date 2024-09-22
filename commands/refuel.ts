@@ -81,7 +81,7 @@ async function getUsdPrice(chainName: string): Promise<number> {
 }
 
 async function getUserWalletData(telegramId: string): Promise<UserWalletData> {
-  const response = await axios.get(`https://refuel-database.onrender.com/api/refuel/wallet/${telegramId}`);
+  const response = await axios.get(`https://refuel-gux8.onrender.com/api/refuel/wallet/${telegramId}`);
   return response.data;
 }
 

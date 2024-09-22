@@ -40,7 +40,7 @@ bot.catch((err: any, ctx: MyContext) => {
 // Function to make API request and store the result in context
 async function makeApiRequest() {
   try {
-    const response = await axios.get('https://refuel-database.onrender.com/api/refuel/wallet/123456');
+    const response = await axios.get('https://refuel-gux8.onrender.com/api/refuel/wallet/123456');
     bot.context.apiData = response.data;
   } catch (error) {
     console.error('Error making API request:', error);

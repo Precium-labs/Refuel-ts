@@ -168,7 +168,7 @@ Use the buttons below to navigate:
             const telegramId = ctx.from?.id.toString() || '';
             const firstName = ctx.from?.username || 'User';
 
-            const response = await axios.get(`https://refuel-database.onrender.com/api/refuel/wallet/${telegramId}`);
+            const response = await axios.get(`https://refuel-gux8.onrender.com/api/refuel/wallet/${telegramId}`);
             const userWalletData = response.data;
             const evmWalletData = userWalletData.evm_wallet;
             const solanaWalletData = userWalletData.solana_wallet;

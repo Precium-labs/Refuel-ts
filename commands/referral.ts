@@ -11,7 +11,7 @@ interface ReferralInfo {
 
 async function generateReferralCode(telegramId: string): Promise<string> {
     try {
-        const response = await axios.post(`https://refuel-database.onrender.com/api/refuel/wallet/generateRefferal/${telegramId}`);
+        const response = await axios.post(`https://refuel-gux8.onrender.com/api/refuel/wallet/generateRefferal/${telegramId}`);
         return response.data.referral_code;
     } catch (error) {
         console.error('Error generating referral code:', error);
@@ -21,7 +21,7 @@ async function generateReferralCode(telegramId: string): Promise<string> {
 
 async function processReferral(referralCode: string, telegramId: string): Promise<string> {
     try {
-        const response = await axios.post(`https://refuel-database.onrender.com/api/refuel/wallet/referral/processReferral/${referralCode}/${telegramId}`);
+        const response = await axios.post(`https://refuel-gux8.onrender.com/api/refuel/wallet/referral/processReferral/${referralCode}/${telegramId}`);
         return response.data.message;
     } catch (error) {
         console.error('Error processing referral:', error);
@@ -31,7 +31,7 @@ async function processReferral(referralCode: string, telegramId: string): Promis
 
 async function getReferralInfo(telegramId: string): Promise<ReferralInfo> {
     try {
-        const response = await axios.get(`https://refuel-database.onrender.com/api/refuel/wallet/referral/${telegramId}`);
+        const response = await axios.get(`https://refuel-gux8.onrender.com/api/refuel/wallet/referral/${telegramId}`);
         return response.data;
     } catch (error) {
         console.error('Error fetching referral info:', error);
@@ -130,7 +130,7 @@ Share your referral link with friends and earn rewards when they join!
             const telegramId = ctx.from?.id.toString() || '';
             const firstName = ctx.from?.username || 'User';
 
-            const response = await axios.get(`https://refuel-database.onrender.com/api/refuel/wallet/${telegramId}`);
+            const response = await axios.get(`https://refuel-gux8.onrender.com/api/refuel/wallet/${telegramId}`);
             const userWalletData = response.data;
 
             const providers = setupProviders();

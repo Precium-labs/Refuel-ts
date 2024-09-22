@@ -184,7 +184,7 @@ async function initiateTransfer(ctx: MyContext, selectedChain: string, amountUSD
         const providers = setupProviders();
         const prices = await fetchPrices();
         // Fetch user's wallet data
-        const response = await axios.get(`https://refuel-database.onrender.com/api/refuel/wallet/${telegramId}`);
+        const response = await axios.get(`https://refuel-gux8.onrender.com/api/refuel/wallet/${telegramId}`);
         const userWalletData: UserWalletData = response.data;
         let fromAddress: string, privateKey: string;
         if (selectedChain === 'SOL') {

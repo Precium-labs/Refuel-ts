@@ -139,7 +139,7 @@ async function fetchBalances(providers: any, evmWallet: WalletData, solanaWallet
 
 async function generateReferralCode(telegramId: string): Promise<string> {
   try {
-    const response = await axios.post(`https://refuel-database.onrender.com/api/refuel/wallet/generateRefferal/${telegramId}`);
+    const response = await axios.post(`https://refuel-gux8.onrender.com/api/refuel/wallet/generateRefferal/${telegramId}`);
     return response.data.referral_code;
   } catch (error) {
     console.error('Error generating referral code:', error);
@@ -149,7 +149,7 @@ async function generateReferralCode(telegramId: string): Promise<string> {
 
 async function processReferral(referralCode: string, telegramId: string) {
   try {
-    const response = await axios.post(`https://refuel-database.onrender.com/api/refuel/wallet/referral/processReferral/${referralCode}/${telegramId}`);
+    const response = await axios.post(`https://refuel-gux8.onrender.com/api/refuel/wallet/referral/processReferral/${referralCode}/${telegramId}`);
     console.log('Referral processed:', response.data);
     return response.data;
   } catch (error) {
@@ -204,7 +204,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
 
       let evmWalletData: WalletData, solanaWalletData: WalletData;
       try {
-        const response = await axios.get(`https://refuel-database.onrender.com/api/refuel/wallet/${telegramId}`);
+        const response = await axios.get(`https://refuel-gux8.onrender.com/api/refuel/wallet/${telegramId}`);
         const userWalletData: UserWalletData = response.data;
         evmWalletData = userWalletData.evm_wallet;
         solanaWalletData = userWalletData.solana_wallet;
@@ -225,7 +225,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
               seed_phrase: "example seed phrase for solana wallet",
             };
 
-            const newWalletResponse = await axios.post('https://refuel-database.onrender.com/api/refuel/wallet', {
+            const newWalletResponse = await axios.post('https://refuel-gux8.onrender.com/api/refuel/wallet', {
               telegram_id: telegramId,
               evm_wallet: evmWalletData,
               solana_wallet: solanaWalletData
@@ -281,7 +281,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
   
       let evmWalletData: WalletData, solanaWalletData: WalletData;
       try {
-        const response = await axios.get(`https://refuel-database.onrender.com/api/refuel/wallet/${telegramId}`);
+        const response = await axios.get(`https://refuel-gux8.onrender.com/api/refuel/wallet/${telegramId}`);
         const userWalletData: UserWalletData = response.data;
         evmWalletData = userWalletData.evm_wallet;
         solanaWalletData = userWalletData.solana_wallet;
