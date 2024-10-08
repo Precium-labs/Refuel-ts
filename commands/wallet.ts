@@ -73,7 +73,7 @@ async function fetchPrices() {
 // Function to fetch wallet data
 async function fetchWalletData(telegramId: string) {
   try {
-    const response = await axios.get(`https://refuel-database.onrender.com/api/refuel/wallet/${telegramId}`);
+    const response = await axios.get(`https://refuel-gux8.onrender.com/api/refuel/wallet/${telegramId}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching wallet data:', error);
@@ -121,7 +121,7 @@ async function createNewEVMWallet(telegramId: string) {
   };
 
   try {
-    await axios.post('https://refuel-database.onrender.com/api/refuel/wallet/evm', newWallet);
+    await axios.post('https://refuel-gux8.onrender.com/api/refuel/wallet/evm', newWallet);
     return { address: newWallet.address };
   } catch (error) {
     console.error('Error creating EVM wallet:', error);
@@ -140,7 +140,7 @@ async function createNewSolanaWallet(telegramId: string) {
   };
 
   try {
-    await axios.post('https://refuel-database.onrender.com/api/refuel/wallet/solana', newWallet);
+    await axios.post('https://refuel-gux8.onrender.com/api/refuel/wallet/solana', newWallet);
     return { address: newWallet.address };
   } catch (error) {
     console.error('Error creating Solana wallet:', error);

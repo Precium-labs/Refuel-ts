@@ -138,7 +138,7 @@ async function fetchBalances(providers: any, evmWallet: WalletData, solanaWallet
 
 async function getUserSettings(telegramId: string): Promise<UserSettings> {
     try {
-        const response = await axios.get(`https://refuel-database.onrender.com/api/refuel/settings/${telegramId}`);
+        const response = await axios.get(`https://refuel-gux8.onrender.com/api/refuel/settings/${telegramId}`);
         return response.data;
     } catch (error) {
         console.error('Error fetching user settings:', error);
@@ -151,7 +151,7 @@ async function getUserSettings(telegramId: string): Promise<UserSettings> {
 
 async function updateUserSettings(settings: UserSettings): Promise<void> {
     try {
-        await axios.post('https://refuel-database.onrender.com/api/refuel/settings', settings);
+        await axios.post('https://refuel-gux8.onrender.com/api/refuel/settings', settings);
     } catch (error) {
         console.error('Error updating user settings:', error);
         throw new Error('Failed to update settings. Please try again later.');
@@ -220,7 +220,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
             const telegramId = ctx.from?.id.toString() || '';
             const firstName = ctx.from?.username || 'User';
 
-            const response = await axios.get(`https://refuel-database.onrender.com/api/refuel/wallet/${telegramId}`);
+            const response = await axios.get(`https://refuel-gux8.onrender.com/api/refuel/wallet/${telegramId}`);
             const userWalletData = response.data;
             const evmWalletData = userWalletData.evm_wallet;
             const solanaWalletData = userWalletData.solana_wallet;
