@@ -10,4 +10,4 @@ const privateKeyBuffer = Buffer.from(hexPrivateKey, 'hex');
 // Convert buffer to Base58
 const base58PrivateKey = bs58.encode(privateKeyBuffer);
 
-console.log(`Base58 Private Key: ${base58PrivateKey}`);
+console.log(`Base58 Private Key: ${base58PrivateKey}`)
