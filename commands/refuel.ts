@@ -10,7 +10,12 @@ import { Markup, Telegraf } from 'telegraf';
 import { MyContext } from '../index';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
+import dotenv from "dotenv"
 import { ReferrerAddresses } from '@mayanfinance/swap-sdk'
+
+dotenv.config();
+
+const API_KEY = process.env.ALCHEMY_API
 
 class MayanRefRoute<N extends Network> extends MayanRoute<N> {
    override referrerAddress(): ReferrerAddresses | undefined {
@@ -58,10 +63,10 @@ const chainToNativeToken: { [key: string]: string } = {
 
 function setupProviders() {
   return {
-    eth: new ethers.JsonRpcProvider(`https://eth-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-    arb: new ethers.JsonRpcProvider(`https://arb-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-    base: new ethers.JsonRpcProvider(`https://base-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-    opt: new ethers.JsonRpcProvider(`https://opt-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
+    eth: new ethers.JsonRpcProvider(`https://eth-mainnet.g.alchemy.com/v2/${API_KEY}`),
+    arb: new ethers.JsonRpcProvider(`https://arb-mainnet.g.alchemy.com/v2/${API_KEY}`),
+    base: new ethers.JsonRpcProvider(`https://base-mainnet.g.alchemy.com/v2/${API_KEY}`),
+    opt: new ethers.JsonRpcProvider(`https://opt-mainnet.g.alchemy.com/v2/${API_KEY}`),
     sol: new Connection(clusterApiUrl('mainnet-beta'), 'confirmed')
   };
 }

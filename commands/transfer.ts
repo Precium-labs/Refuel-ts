@@ -3,6 +3,11 @@ import { ethers } from 'ethers';
 import { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction, Keypair, clusterApiUrl } from '@solana/web3.js';
 import axios from 'axios';
 import { MyContext } from '../index';
+import dotenv from "dotenv"
+
+dotenv.config();
+
+const API_KEY = process.env.ALCHEMY_API
 
 const SUPPORTED_CHAINS = ['SOL', 'ETH', 'BASE', 'ARB', 'OPTIMISM'];
 
@@ -46,10 +51,10 @@ const userStates: { [key: number]: UserState } = {};
 
 function setupProviders() {
     return {
-        eth: new ethers.JsonRpcProvider(`https://eth-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-        arb: new ethers.JsonRpcProvider(`https://arb-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-        base: new ethers.JsonRpcProvider(`https://base-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-        opt: new ethers.JsonRpcProvider(`https://opt-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
+        eth: new ethers.JsonRpcProvider(`https://eth-mainnet.g.alchemy.com/v2/${API_KEY}`),
+        arb: new ethers.JsonRpcProvider(`https://arb-mainnet.g.alchemy.com/v2/${API_KEY}`),
+        base: new ethers.JsonRpcProvider(`https://base-mainnet.g.alchemy.com/v2/${API_KEY}`),
+        opt: new ethers.JsonRpcProvider(`https://opt-mainnet.g.alchemy.com/v2/${API_KEY}`),
         sol: new Connection(clusterApiUrl('mainnet-beta'), 'confirmed')
     };
 }
@@ -201,6 +206,10 @@ async function initiateTransfer(ctx: MyContext, selectedChain: string, amountUSD
         } else {
             nativeAmount = amountUSD / prices.eth;
         }
+
+        nativeAmount = Number(nativeAmount.toFixed(18));
+
+
         // Check if user has sufficient balance
         const balances = await fetchBalances(providers, userWalletData.evm_wallet, userWalletData.solana_wallet);
         const userBalance = getBalanceForChain(balances, selectedChain);
@@ -289,9 +298,12 @@ async function transferSOL(from: string, to: string, amount: number, privateKey:
 async function transferEVM(from: string, to: string, amount: number, privateKey: string, provider: ethers.JsonRpcProvider, explorerBaseUrl: string): Promise<TransferResult> {
     try {
         const wallet = new ethers.Wallet(privateKey, provider);
+
+        const roundedAmount = Number(amount.toFixed(18));
+
         const tx = await wallet.sendTransaction({
             to: to,
-            value: ethers.parseEther(amount.toString())
+            value: ethers.parseEther(roundedAmount.toString())
         });
         const receipt = await tx.wait();
         

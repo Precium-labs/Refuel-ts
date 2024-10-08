@@ -2,6 +2,11 @@ import axios from 'axios';
 import { Markup, Telegraf, Context } from 'telegraf';
 import { ethers } from 'ethers';
 import { Keypair, PublicKey, Connection, clusterApiUrl } from '@solana/web3.js';
+import dotenv from "dotenv"
+
+dotenv.config();
+
+const API_KEY = process.env.ALCHEMY_API
 
 interface WalletData {
   address: string;
@@ -27,13 +32,12 @@ interface Balances {
   sol: number;
 }
 
-// Function to set up providers
 function setupProviders() {
   return {
-    eth: new ethers.JsonRpcProvider(`https://eth-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-    arb: new ethers.JsonRpcProvider(`https://arb-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-    base: new ethers.JsonRpcProvider(`https://base-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
-    opt: new ethers.JsonRpcProvider(`https://opt-mainnet.g.alchemy.com/v2/nRKZNN7FV_lFECaCuzF1jGPPkcCD8ogi`),
+    eth: new ethers.JsonRpcProvider(`https://eth-mainnet.g.alchemy.com/v2/${API_KEY}`),
+    arb: new ethers.JsonRpcProvider(`https://arb-mainnet.g.alchemy.com/v2/${API_KEY}`),
+    base: new ethers.JsonRpcProvider(`https://base-mainnet.g.alchemy.com/v2/${API_KEY}`),
+    opt: new ethers.JsonRpcProvider(`https://opt-mainnet.g.alchemy.com/v2/${API_KEY}`),
     sol: new Connection(clusterApiUrl('mainnet-beta'), 'confirmed')
   };
 }
