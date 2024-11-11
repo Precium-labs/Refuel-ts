@@ -3,7 +3,7 @@ import { Markup, Telegraf } from 'telegraf';
 import { Message } from 'telegraf/types';
 import { ethers } from 'ethers';
 import { Keypair, Connection, clusterApiUrl, PublicKey } from '@solana/web3.js';
-import { MyContext } from '../index'
+import { MyContext } from '../index.mjs'
 import dotenv from "dotenv"
 
 dotenv.config();
@@ -63,10 +63,10 @@ function generateWalletMessage(
   const solanaAddress = `<code>${solanaWallet.address}</code>`;
 
   const ethBalance = parseFloat(ethers.formatEther(balances.eth));
-    const arbBalance = parseFloat(ethers.formatEther(balances.arb));
-    const baseBalance = parseFloat(ethers.formatEther(balances.base));
-    const optBalance = parseFloat(ethers.formatEther(balances.opt));
-    const solBalance = balances.sol / 1e9; // Convert lamports to SOL (Solana's base unit)
+  const arbBalance = parseFloat(ethers.formatEther(balances.arb));
+  const baseBalance = parseFloat(ethers.formatEther(balances.base));
+  const optBalance = parseFloat(ethers.formatEther(balances.opt));
+  const solBalance = balances.sol / 1e9; // Convert lamports to SOL (Solana's base unit)
 
   return `@${firstName} <b>Welcome</b> to <b>Refuel Bot</b> ⛽️\n\n` +
     `The <b>Fastest</b>⚡ and most <b>Reliable</b>🛡️ way to get <b>Gas</b> into your wallet \n<b>Leveraging on Wormhole Technologies</b> \n\n` +
@@ -112,7 +112,7 @@ async function fetchBalances(providers: any, evmWallet: WalletData, solanaWallet
       providers.base.getBalance(evmWallet.address).catch((e: Error) => {
         console.error('Error fetching BASE balance:', e);
         return 0n;
-      }), 
+      }),
       providers.opt.getBalance(evmWallet.address).catch((e: Error) => {
         console.error('Error fetching OPT balance:', e);
         return 0n;
@@ -176,7 +176,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
         try {
           // Generate the user's own referral code
           const userReferralCode = await generateReferralCode(telegramId);
-          
+
           // Check if the user is trying to use their own referral code
           if (startPayload === userReferralCode) {
             await ctx.reply("You can't refer yourself. Share your referral link with others!");
@@ -283,7 +283,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
       const telegramId = ctx.from?.id.toString() || '';
       const firstName = ctx.from?.username || 'User';
       console.log('Refreshing for Telegram ID:', telegramId);
-  
+
       let evmWalletData: WalletData, solanaWalletData: WalletData;
       try {
         const response = await axios.get(`https://refuel-gux8.onrender.com/api/refuel/wallet/${telegramId}`);
@@ -294,29 +294,29 @@ module.exports = (bot: Telegraf<MyContext>) => {
         console.error('Error fetching wallet data:', error);
         throw new Error('Failed to retrieve wallet information. Please try again later or contact support.');
       }
-  
+
       if (!evmWalletData || !solanaWalletData) {
         throw new Error('Failed to retrieve wallet information. Please try again later or contact support.');
       }
-  
+
       const providers = setupProviders();
       const balances = await fetchBalances(providers, evmWalletData, solanaWalletData);
       console.log('Balances:', balances);
-  
+
       const prices = await fetchPrices();
       console.log('Prices:', prices);
-  
+
       const message = generateWalletMessage(firstName, evmWalletData, solanaWalletData, balances, prices);
       console.log('Generated message:', message);
-  
+
       await ctx.answerCbQuery('Refreshed successfully');
-  
+
       if (ctx.callbackQuery && 'message' in ctx.callbackQuery) {
         const originalMessage = ctx.callbackQuery.message as Message.TextMessage;
         if (originalMessage && originalMessage.reply_markup) {
-          await ctx.editMessageText(message, { 
-            parse_mode: 'HTML', 
-            reply_markup: originalMessage.reply_markup 
+          await ctx.editMessageText(message, {
+            parse_mode: 'HTML',
+            reply_markup: originalMessage.reply_markup
           });
         } else {
           await ctx.editMessageText(message, { parse_mode: 'HTML' });
@@ -335,6 +335,6 @@ module.exports = (bot: Telegraf<MyContext>) => {
   });
 };
 // start.ts
-export { setupProviders, fetchBalances, fetchPrices, generateWalletMessage } 
+export { setupProviders, fetchBalances, fetchPrices, generateWalletMessage }
 
 
