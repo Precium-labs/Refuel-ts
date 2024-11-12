@@ -2,7 +2,7 @@ import { Telegraf, Markup } from 'telegraf';
 import { ethers } from 'ethers';
 import { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction, Keypair, clusterApiUrl } from '@solana/web3.js';
 import axios from 'axios';
-import { MyContext } from '../index.mts';
+import { MyContext } from '../index';
 import dotenv from "dotenv"
 
 dotenv.config();
@@ -219,7 +219,7 @@ async function initiateTransfer(ctx: MyContext, selectedChain: string, amountUSD
         }
         // Perform the transfer
         const result = await performTransfer(selectedChain, fromAddress, recipientAddress, nativeAmount, privateKey, providers);
-
+        
         if (result.success) {
             await ctx.reply(`Transfer successful!\nFrom: ${fromAddress}\nTo: ${recipientAddress}\nAmount: $${amountUSD} (${nativeAmount.toFixed(6)} ${selectedChain})\nTransaction Hash: ${result.txHash}\nExplorer Link: ${result.explorerLink}`);
         } else {
@@ -306,7 +306,7 @@ async function transferEVM(from: string, to: string, amount: number, privateKey:
             value: ethers.parseEther(roundedAmount.toString())
         });
         const receipt = await tx.wait();
-
+        
         if (receipt && receipt.status === 1) {
             return {
                 success: true,
@@ -352,4 +352,4 @@ function getBalanceForChain(balances: Balances, chain: string): number {
     }
 }
 
-export { };
+export {};

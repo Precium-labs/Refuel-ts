@@ -1,5 +1,5 @@
 import { Telegraf, Markup } from 'telegraf';
-import { MyContext } from '../index.mts';
+import { MyContext } from '../index';
 import axios from 'axios';
 import { ethers } from 'ethers';
 import { Keypair, Connection, clusterApiUrl, PublicKey } from '@solana/web3.js';

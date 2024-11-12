@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { Markup, Telegraf } from 'telegraf';
-import { MyContext } from '../index.mts';
+import { MyContext } from '../index';
 import { setupProviders, fetchBalances, fetchPrices, generateWalletMessage } from './start';
 
 interface ReferralInfo {
