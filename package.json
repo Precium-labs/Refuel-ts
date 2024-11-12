@@ -17,6 +17,7 @@
   "dependencies": {
     "@mayanfinance/swap-sdk": "^9.1.0",
     "@solana/web3.js": "^1.95.3",
+    "@tsconfig/node18": "^18.2.4",
     "@wormhole-foundation/sdk-connect": "^0.10.2",
     "@wormhole-foundation/sdk-evm": "^0.10.2",
     "@wormhole-foundation/sdk-solana": "^0.10.2",
