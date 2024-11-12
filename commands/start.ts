@@ -3,7 +3,7 @@ import { Markup, Telegraf } from 'telegraf';
 import { Message } from 'telegraf/types';
 import { ethers } from 'ethers';
 import { Keypair, Connection, clusterApiUrl, PublicKey } from '@solana/web3.js';
-import { MyContext } from '../index.mjs'
+import { MyContext } from '../index.mts'
 import dotenv from "dotenv"
 
 dotenv.config();

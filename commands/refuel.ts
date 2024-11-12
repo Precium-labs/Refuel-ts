@@ -1,5 +1,5 @@
 import { Telegraf, Markup } from 'telegraf';
-import { MyContext } from '../index.mjs';
+import { MyContext } from '../index.mts';
 import { ethers } from 'ethers';
 import { Connection, clusterApiUrl } from '@solana/web3.js';
 import { Wormhole, Network, Chain, routes, ChainContext, TokenId } from "@wormhole-foundation/sdk-connect";

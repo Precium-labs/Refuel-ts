@@ -2,7 +2,7 @@ import { Telegraf, Markup } from 'telegraf';
 import { ethers } from 'ethers';
 import { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction, Keypair, clusterApiUrl } from '@solana/web3.js';
 import axios from 'axios';
-import { MyContext } from '../index.mjs';
+import { MyContext } from '../index.mts';
 import dotenv from "dotenv"
 
 dotenv.config();

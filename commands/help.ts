@@ -1,6 +1,6 @@
 // help.ts
 import { Telegraf, Markup } from 'telegraf';
-import { MyContext } from '../index.mjs';
+import { MyContext } from '../index.mts';
 import axios from 'axios';
 import { ethers } from 'ethers';
 import dotenv from 'dotenv';
