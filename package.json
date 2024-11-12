@@ -2,12 +2,11 @@
   "name": "refuel-ts",
   "version": "1.0.0",
   "description": "",
-  "main": "index.ts",
   "type": "module",
   "scripts": {
-    "start": "node --loader ts-node/esm index.ts",
+    "start": "node --loader ts-node/esm --experimental-specifier-resolution=node index.ts",
     "build": "tsc",
-    "dev": "nodemon --exec node --loader ts-node/esm index.ts"
+    "dev": "nodemon --exec node --loader ts-node/esm --experimental-specifier-resolution=node index.ts"
   },
   "keywords": [],
   "author": "",
