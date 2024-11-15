@@ -100,7 +100,8 @@ export = (bot: Telegraf<MyContext>) => {
 
     const keyboard = Markup.inlineKeyboard([
       [Markup.button.callback('👜 Check Balance', 'wallet')],
-      ...chainButtons.map(button => [button])
+      ...chainButtons.map(button => [button]),
+      [Markup.button.callback('Back to Main Menu ⬅️', 'back_to_main')]
     ]);
 
     await ctx.reply('Select source chain:', keyboard);
@@ -140,7 +141,8 @@ export = (bot: Telegraf<MyContext>) => {
 
       const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('👜 Check Balance', 'wallet')],
-        [Markup.button.callback('🔄 Start Over', 'refuel')]
+        [Markup.button.callback('🔄 Start Over', 'refuel')],
+        [Markup.button.callback('Back to Main Menu', 'back_to_main')]
       ]);
 
       const message =
@@ -187,7 +189,8 @@ export = (bot: Telegraf<MyContext>) => {
 
       const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('🔄 Start Another Refuel', 'refuel')],
-        [Markup.button.callback('👜 Check Balance', 'wallet')]
+        [Markup.button.callback('👜 Check Balance', 'wallet')],
+        [Markup.button.callback('Back to Main Menu', 'back_to_main')]
       ]);
       await ctx.reply('Would you like to make another transaction?', keyboard);
 
@@ -196,7 +199,8 @@ export = (bot: Telegraf<MyContext>) => {
 
       const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('🔄 Try Again', 'refuel')],
-        [Markup.button.callback('👜 Check Balance', 'wallet')]
+        [Markup.button.callback('👜 Check Balance', 'wallet')],
+        [Markup.button.callback('Back to Main Menu', 'back_to_main')]
       ]);
 
       await ctx.reply(
