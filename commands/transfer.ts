@@ -130,7 +130,7 @@ async function fetchBalances(providers: any, evmWallet: WalletData, solanaWallet
 }
 
 module.exports = (bot: Telegraf<MyContext>) => {
-    // Debug handler for ALL messages
+    // Debug handler
     bot.use((ctx, next) => {
         console.log('=== New Message ===');
         console.log('Update type:', ctx.updateType);
@@ -138,8 +138,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
         return next();
     });
 
-    // Specific handler for numeric inputs
-    // Updated handler for numeric inputs with optional $ prefix
+    // Handler for numeric inputs with $ prefix
     bot.hears(/^\$?\d+\.?\d*$/, async (ctx) => {
         console.log('=== Numeric Handler ===');
         if (!ctx.from) return;
@@ -170,7 +169,6 @@ module.exports = (bot: Telegraf<MyContext>) => {
         }
     });
 
-    // Handle text messages (for addresses)
     // Fixed text message handler for addresses
     bot.on('text', async (ctx) => {
         console.log('=== Text Message Handler ===');
@@ -223,8 +221,9 @@ module.exports = (bot: Telegraf<MyContext>) => {
             userState.waitingForAddress = false;
             userState.amountUSD = undefined;
         }
+    });
 
-    // Transfer command handler
+    // Original transfer action handler
     bot.action('transfer', async (ctx) => {
         if (!ctx.from) return;
         console.log('=== Transfer Action ===');
@@ -268,10 +267,10 @@ module.exports = (bot: Telegraf<MyContext>) => {
                 [Markup.button.callback('Cancel', 'transfer')]
             ]);
 
-            await ctx.reply(`Selected chain: ${chain}\n\nPlease enter amount (e.g. $15 "IN this format $amount):`, keyboard);
+            await ctx.reply(`Selected chain: ${chain}\n\nPlease enter amount In this from $amount(e.g. $15):`, keyboard);
+            await ctx.answerCbQuery();
         });
     });
-});
 
     // Add transfer functions
     async function initiateTransfer(ctx: MyContext, selectedChain: string, amountUSD: number, recipientAddress: string) {
