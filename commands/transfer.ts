@@ -1,9 +1,10 @@
 import { Telegraf, Markup } from 'telegraf';
 import { ethers } from 'ethers';
-import { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction, Keypair, clusterApiUrl } from '@solana/web3.js';
+import { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction, Keypair, clusterApiUrl, Message } from '@solana/web3.js';
 import axios from 'axios';
 import { MyContext } from '../index';
 import dotenv from "dotenv"
+import { isNumType } from '@wormhole-foundation/sdk-connect';
 
 dotenv.config();
 
@@ -34,10 +35,24 @@ interface Balances {
     sol: number;
 }
 
-interface UserState {
-    step: 'idle' | 'awaiting_chain' | 'awaiting_amount' | 'awaiting_address';
-    selectedChain?: string;
+// Store user states in a map using telegram user ID as key
+const userStates = new Map<string, {
+    selectedChain: string | null;
+    waitingForAmount: boolean;
+    waitingForAddress: boolean;
     amountUSD?: number;
+}>();
+
+// Helper function to get or create user state
+function getUserState(userId: string) {
+    if (!userStates.has(userId)) {
+        userStates.set(userId, {
+            selectedChain: null,
+            waitingForAmount: false,
+            waitingForAddress: false
+        });
+    }
+    return userStates.get(userId)!;
 }
 
 interface TransferResult {
@@ -47,7 +62,6 @@ interface TransferResult {
     errorReason?: string;
 }
 
-const userStates: { [key: number]: UserState } = {};
 
 function setupProviders() {
     return {
@@ -116,120 +130,199 @@ async function fetchBalances(providers: any, evmWallet: WalletData, solanaWallet
 }
 
 module.exports = (bot: Telegraf<MyContext>) => {
-    // Start the transfer process
-    bot.action('transfer', async (ctx) => {
-        const userId = ctx.from!.id;
-        userStates[userId] = { step: 'awaiting_chain' };
-
-        const chainKeyboard = Markup.inlineKeyboard(
-            SUPPORTED_CHAINS.map(chain => [Markup.button.callback(chain, `select_chain_${chain}`)])
-        );
-
-        await ctx.reply('Transfer process started. Please select the chain you want to transfer from:', chainKeyboard);
+    // Debug handler for ALL messages
+    bot.use((ctx, next) => {
+        console.log('=== New Message ===');
+        console.log('Update type:', ctx.updateType);
+        console.log('Message:', ctx.message);
+        return next();
     });
 
-    // Handle chain selection
-    SUPPORTED_CHAINS.forEach(chain => {
-        bot.action(`select_chain_${chain}`, async (ctx) => {
-            const userId = ctx.from!.id;
-            if (!userStates[userId] || userStates[userId].step !== 'awaiting_chain') return;
+    // Specific handler for numeric inputs
+    // Updated handler for numeric inputs with optional $ prefix
+    bot.hears(/^\$?\d+\.?\d*$/, async (ctx) => {
+        console.log('=== Numeric Handler ===');
+        if (!ctx.from) return;
 
-            userStates[userId] = { step: 'awaiting_amount', selectedChain: chain };
-            await ctx.answerCbQuery(`${chain} selected`);
-            await ctx.reply('Please enter the amount you want to send in USD:', {
-                reply_markup: { force_reply: true, selective: true }
-            });
-        });
+        const userState = getUserState(ctx.from.id.toString());
+        console.log('User state in numeric handler:', userState);
+
+        if (userState.waitingForAmount && userState.selectedChain) {
+            // Remove $ sign if present and parse the amount
+            const amountStr = ctx.message.text.replace('$', '');
+            const amount = parseFloat(amountStr);
+            console.log('Parsed amount:', amount);
+
+            if (isNaN(amount) || amount < 1) {
+                await ctx.reply('Please enter a valid amount (minimum $1).');
+                return;
+            }
+
+            userState.amountUSD = amount;
+            userState.waitingForAmount = false;
+            userState.waitingForAddress = true;
+
+            const keyboard = Markup.inlineKeyboard([
+                [Markup.button.callback('Cancel Transfer', 'transfer')]
+            ]);
+
+            await ctx.reply('Please enter the recipient address:', keyboard);
+        }
     });
 
-    // Handle text input (amount and address)
+    // Handle text messages (for addresses)
+    // Fixed text message handler for addresses
     bot.on('text', async (ctx) => {
-        const userId = ctx.from.id;
-        const userState = userStates[userId];
+        console.log('=== Text Message Handler ===');
+        if (!ctx.from) return;
 
-        if (!userState) return;
+        const userState = getUserState(ctx.from.id.toString());
+        console.log('User state in text handler:', userState);
 
-        if (userState.step === 'awaiting_amount') {
-            const amount = parseFloat(ctx.message.text);
-            if (isNaN(amount) || amount <= 0) {
-                await ctx.reply('Please enter a valid positive number for the amount.');
-                return;
-            }
-            userStates[userId] = { ...userState, step: 'awaiting_address', amountUSD: amount };
-            await ctx.reply('Please enter the recipient address:', {
-                reply_markup: { force_reply: true, selective: true }
-            });
-        } else if (userState.step === 'awaiting_address') {
-            const address = ctx.message.text;
-            if (!isValidAddress(address, userState.selectedChain!)) {
-                await ctx.reply('Invalid address. Please enter a valid address for the selected chain.');
-                return;
-            }
-            await initiateTransfer(ctx, userState.selectedChain!, userState.amountUSD!, address);
-            delete userStates[userId];
-        }
-    });
-
-    // Cancel transfer process
-    bot.command('cancel_transfer', async (ctx) => {
-        const userId = ctx.from!.id;
-        if (userStates[userId]) {
-            delete userStates[userId];
-            await ctx.reply('Transfer process cancelled.');
-        } else {
-            await ctx.reply('No transfer process is currently active.');
-        }
-    });
-};
-
-async function initiateTransfer(ctx: MyContext, selectedChain: string, amountUSD: number, recipientAddress: string) {
-    try {
-        const telegramId = ctx.from?.id.toString();
-        if (!telegramId) throw new Error('Telegram ID not found');
-        const providers = setupProviders();
-        const prices = await fetchPrices();
-        // Fetch user's wallet data
-        const response = await axios.get(`https://refuel-gux8.onrender.com/api/refuel/wallet/${telegramId}`);
-        const userWalletData: UserWalletData = response.data;
-        let fromAddress: string, privateKey: string;
-        if (selectedChain === 'SOL') {
-            fromAddress = userWalletData.solana_wallet.address;
-            privateKey = userWalletData.solana_wallet.private_key;
-        } else {
-            fromAddress = userWalletData.evm_wallet.address;
-            privateKey = userWalletData.evm_wallet.private_key;
-        }
-        // Convert USD to native token amount
-        let nativeAmount: number;
-        if (selectedChain === 'SOL') {
-            nativeAmount = amountUSD / prices.sol;
-        } else {
-            nativeAmount = amountUSD / prices.eth;
-        }
-
-        nativeAmount = Number(nativeAmount.toFixed(18));
-
-
-        // Check if user has sufficient balance
-        const balances = await fetchBalances(providers, userWalletData.evm_wallet, userWalletData.solana_wallet);
-        const userBalance = getBalanceForChain(balances, selectedChain);
-        if (userBalance < nativeAmount) {
-            await ctx.reply(`Insufficient balance. You have ${userBalance.toFixed(6)} ${selectedChain} but are trying to send ${nativeAmount.toFixed(6)} ${selectedChain}.`);
+        // Skip if it's a numeric input (already handled by the other handler)
+        if (ctx.message.text.match(/^\$?\d+\.?\d*$/)) {
             return;
         }
-        // Perform the transfer
-        const result = await performTransfer(selectedChain, fromAddress, recipientAddress, nativeAmount, privateKey, providers);
-        
-        if (result.success) {
-            await ctx.reply(`Transfer successful!\nFrom: ${fromAddress}\nTo: ${recipientAddress}\nAmount: $${amountUSD} (${nativeAmount.toFixed(6)} ${selectedChain})\nTransaction Hash: ${result.txHash}\nExplorer Link: ${result.explorerLink}`);
-        } else {
-            await ctx.reply(`Transfer failed.\nReason: ${result.errorReason}\nExplorer Link (if applicable): ${result.explorerLink}`);
+
+        // Only process if we're waiting for an address and have both chain and amount
+        if (userState.waitingForAddress && userState.selectedChain && userState.amountUSD) {
+            const address = ctx.message.text;
+            console.log('Processing address:', address);
+
+            if (!isValidAddress(address, userState.selectedChain)) {
+                await ctx.reply('Invalid address. Please enter a valid address.');
+                return;
+            }
+
+            await ctx.reply('Processing your transfer. This will take a moment...');
+
+            try {
+                await initiateTransfer(ctx, userState.selectedChain, userState.amountUSD, address);
+
+                // Add a keyboard after successful transfer
+                const keyboard = Markup.inlineKeyboard([
+                    [Markup.button.callback('Make Another Transfer', 'transfer')],
+                    [Markup.button.callback('Check Balance', 'wallet')],
+                    [Markup.button.callback('Back to Main Menu ⬅️', 'back_to_main')]
+                ]);
+
+                await ctx.reply('Would you like to make another transfer?', keyboard);
+
+            } catch (error) {
+                console.error('Transfer error:', error);
+                const keyboard = Markup.inlineKeyboard([
+                    [Markup.button.callback('Try Again', 'transfer')],
+                    [Markup.button.callback('Back to Main Menu ⬅️', 'back_to_main')]
+                ]);
+                await ctx.reply('Transfer failed. Please try again.', keyboard);
+            }
+
+            // Reset user state after transfer attempt
+            userState.selectedChain = null;
+            userState.waitingForAmount = false;
+            userState.waitingForAddress = false;
+            userState.amountUSD = undefined;
         }
-    } catch (error) {
-        console.error('Error in initiateTransfer:', error);
-        await ctx.reply('An error occurred while initiating the transfer. Please try again later.');
+
+    // Transfer command handler
+    bot.action('transfer', async (ctx) => {
+        if (!ctx.from) return;
+        console.log('=== Transfer Action ===');
+
+        const userState = getUserState(ctx.from.id.toString());
+        // Reset state when starting new transfer
+        userState.selectedChain = null;
+        userState.waitingForAmount = false;
+        userState.waitingForAddress = false;
+        userState.amountUSD = undefined;
+
+        const chainButtons = SUPPORTED_CHAINS.map(chain =>
+            Markup.button.callback(chain, `select_chain_${chain}`)
+        );
+
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback('👜 Check Balance', 'wallet')],
+            ...chainButtons.map(button => [button]),
+            [Markup.button.callback('Back to Main Menu ⬅️', 'back_to_main')]
+        ]);
+
+        await ctx.reply('Select chain to transfer from:', keyboard);
+    });
+
+    // Chain selection handlers
+    SUPPORTED_CHAINS.forEach(chain => {
+        bot.action(`select_chain_${chain}`, async (ctx) => {
+            if (!ctx.from) return;
+            console.log('=== Chain Selection ===');
+            console.log(`Chain ${chain} selected for user ${ctx.from.id}`);
+
+            const userState = getUserState(ctx.from.id.toString());
+            userState.selectedChain = chain;
+            userState.waitingForAmount = true;
+            userState.waitingForAddress = false;
+            userState.amountUSD = undefined;
+
+            console.log('Updated state after chain selection:', userState);
+
+            const keyboard = Markup.inlineKeyboard([
+                [Markup.button.callback('Cancel', 'transfer')]
+            ]);
+
+            await ctx.reply(`Selected chain: ${chain}\n\nPlease enter amount (e.g. $15):`, keyboard);
+        });
+    });
+});
+
+    // Add transfer functions
+    async function initiateTransfer(ctx: MyContext, selectedChain: string, amountUSD: number, recipientAddress: string) {
+        try {
+            const telegramId = ctx.from?.id.toString();
+            if (!telegramId) throw new Error('Telegram ID not found');
+            const providers = setupProviders();
+            const prices = await fetchPrices();
+
+            const response = await axios.get(`https://refuel-gux8.onrender.com/api/refuel/wallet/${telegramId}`);
+            const userWalletData: UserWalletData = response.data;
+
+            let fromAddress: string, privateKey: string;
+            if (selectedChain === 'SOL') {
+                fromAddress = userWalletData.solana_wallet.address;
+                privateKey = userWalletData.solana_wallet.private_key;
+            } else {
+                fromAddress = userWalletData.evm_wallet.address;
+                privateKey = userWalletData.evm_wallet.private_key;
+            }
+
+            let nativeAmount: number;
+            if (selectedChain === 'SOL') {
+                nativeAmount = amountUSD / prices.sol;
+            } else {
+                nativeAmount = amountUSD / prices.eth;
+            }
+
+            nativeAmount = Number(nativeAmount.toFixed(18));
+
+            const balances = await fetchBalances(providers, userWalletData.evm_wallet, userWalletData.solana_wallet);
+            const userBalance = getBalanceForChain(balances, selectedChain);
+
+            if (userBalance < nativeAmount) {
+                await ctx.reply(`Insufficient balance. You have ${userBalance.toFixed(6)} ${selectedChain} but are trying to send ${nativeAmount.toFixed(6)} ${selectedChain}.`);
+                return;
+            }
+
+            const result = await performTransfer(selectedChain, fromAddress, recipientAddress, nativeAmount, privateKey, providers);
+
+            if (result.success) {
+                await ctx.reply(`Transfer successful!\nFrom: ${fromAddress}\nTo: ${recipientAddress}\nAmount: $${amountUSD} (${nativeAmount.toFixed(6)} ${selectedChain})\nTransaction Hash: ${result.txHash}\nExplorer Link: ${result.explorerLink}`);
+            } else {
+                await ctx.reply(`Transfer failed.\nReason: ${result.errorReason}\nExplorer Link (if applicable): ${result.explorerLink}`);
+            }
+        } catch (error) {
+            console.error('Error in initiateTransfer:', error);
+            await ctx.reply('An error occurred while initiating the transfer. Please try again later.');
+        }
     }
-}
+
 
 function isValidAddress(address: string, chain: string): boolean {
     if (chain === 'SOL') {
@@ -306,7 +399,7 @@ async function transferEVM(from: string, to: string, amount: number, privateKey:
             value: ethers.parseEther(roundedAmount.toString())
         });
         const receipt = await tx.wait();
-        
+
         if (receipt && receipt.status === 1) {
             return {
                 success: true,
@@ -351,5 +444,6 @@ function getBalanceForChain(balances: Balances, chain: string): number {
             throw new Error('Unsupported chain');
     }
 }
+}
 
-export {};
+export { };
