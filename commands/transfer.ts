@@ -268,7 +268,7 @@ module.exports = (bot: Telegraf<MyContext>) => {
                 [Markup.button.callback('Cancel', 'transfer')]
             ]);
 
-            await ctx.reply(`Selected chain: ${chain}\n\nPlease enter amount (e.g. $15):`, keyboard);
+            await ctx.reply(`Selected chain: ${chain}\n\nPlease enter amount (e.g. $15 "IN this format $amount):`, keyboard);
         });
     });
 });
