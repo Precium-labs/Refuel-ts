@@ -2,88 +2,11 @@ import axios from 'axios';
 import { Markup, Telegraf, Context } from 'telegraf';
 import { ethers } from 'ethers';
 import { Keypair, PublicKey, Connection, clusterApiUrl } from '@solana/web3.js';
-import dotenv from "dotenv"
+import { Balances, Prices, UserWalletData, WalletData } from '../helper_functions/interfaces';
+import setupProviders from '../helper_functions/providers';
+import fetchBalances, { fetchPrices } from '../helper_functions/fetchBalances';
+import { createNewEVMWallet, createNewSolanaWallet, fetchWalletData, generateWalletMessage } from '../helper_functions/wallets';
 
-dotenv.config();
-
-const API_KEY = process.env.ALCHEMY_API
-
-interface WalletData {
-  address: string;
-  private_key: string;
-  seed_phrase?: string;
-}
-
-interface UserWalletData {
-  evm_wallet: WalletData;
-  solana_wallet: WalletData;
-}
-
-interface Prices {
-  eth: number;
-  sol: number;
-}
-
-interface Balances {
-  eth: bigint;
-  arb: bigint;
-  base: bigint;
-  opt: bigint;
-  sol: number;
-}
-
-function setupProviders() {
-  return {
-    eth: new ethers.JsonRpcProvider(`https://eth-mainnet.g.alchemy.com/v2/${API_KEY}`),
-    arb: new ethers.JsonRpcProvider(`https://arb-mainnet.g.alchemy.com/v2/${API_KEY}`),
-    base: new ethers.JsonRpcProvider(`https://base-mainnet.g.alchemy.com/v2/${API_KEY}`),
-    opt: new ethers.JsonRpcProvider(`https://opt-mainnet.g.alchemy.com/v2/${API_KEY}`),
-    sol: new Connection(clusterApiUrl('mainnet-beta'), 'confirmed')
-  };
-}
-
-// Function to fetch balances
-async function fetchBalances(providers: any, evmWallet: WalletData, solanaWallet: WalletData) {
-  try {
-    const [ethBalance, arbBalance, baseBalance, optBalance, solBalance] = await Promise.all([
-      providers.eth.getBalance(evmWallet.address),
-      providers.arb.getBalance(evmWallet.address),
-      providers.base.getBalance(evmWallet.address),
-      providers.opt.getBalance(evmWallet.address),
-      providers.sol.getBalance(new PublicKey(solanaWallet.address))
-    ]);
-
-    return { eth: ethBalance, arb: arbBalance, base: baseBalance, opt: optBalance, sol: solBalance };
-  } catch (error) {
-    console.error('Error fetching balances:', error);
-    throw error;
-  }
-}
-
-// Function to fetch current prices
-async function fetchPrices() {
-  try {
-    const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=ethereum,solana&vs_currencies=usd');
-    return {
-      eth: response.data.ethereum.usd,
-      sol: response.data.solana.usd
-    };
-  } catch (error) {
-    console.error('Error fetching prices:', error);
-    return { eth: 0, sol: 0 };
-  }
-}
-
-// Function to fetch wallet data
-async function fetchWalletData(telegramId: string) {
-  try {
-    const response = await axios.get(`https://refuel-gux8.onrender.com/api/refuel/wallet/${telegramId}`);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching wallet data:', error);
-    throw new Error('Failed to fetch wallet details');
-  }
-}
 
 // Function to generate wallet info message
 async function generateWalletInfo(walletData: UserWalletData) {
@@ -114,43 +37,7 @@ async function generateWalletInfo(walletData: UserWalletData) {
   }
   
 
-// Function to create new EVM wallet
-async function createNewEVMWallet(telegramId: string) {
-  const evmWallet = ethers.Wallet.createRandom();
-  const newWallet = {
-    telegram_id: telegramId,
-    address: evmWallet.address,
-    private_key: evmWallet.privateKey,
-    seed_phrase: evmWallet.mnemonic?.phrase || "No mnemonic available" // Handle null mnemonic case
-  };
 
-  try {
-    await axios.post('https://refuel-gux8.onrender.com/api/refuel/wallet/evm', newWallet);
-    return { address: newWallet.address };
-  } catch (error) {
-    console.error('Error creating EVM wallet:', error);
-    throw new Error('Failed to create EVM wallet');
-  }
-}
-
-// Function to create new Solana wallet
-async function createNewSolanaWallet(telegramId: string) {
-  const solanaWallet = Keypair.generate();
-  const newWallet = {
-    telegram_id: telegramId,
-    address: solanaWallet.publicKey.toString(),
-    private_key: Buffer.from(solanaWallet.secretKey).toString('hex'),
-    seed_phrase: "Not applicable for Solana" // Solana doesn't use seed phrases in the same way
-  };
-
-  try {
-    await axios.post('https://refuel-gux8.onrender.com/api/refuel/wallet/solana', newWallet);
-    return { address: newWallet.address };
-  } catch (error) {
-    console.error('Error creating Solana wallet:', error);
-    throw new Error('Failed to create Solana wallet');
-  }
-}
 
 // Function to offer creating new wallets
 function offerCreateWallets(ctx: Context) {
@@ -284,30 +171,4 @@ module.exports = (bot: Telegraf<Context>) => {
   });
 };
 
-function generateWalletMessage(
-  firstName: string,
-  evmWallet: WalletData,
-  solanaWallet: WalletData,
-  balances: Balances,
-  prices: Prices
-): string {
-  // Convert formatted balances from string to number for arithmetic operations
-  const ethBalance = parseFloat(ethers.formatEther(balances.eth));
-  const arbBalance = parseFloat(ethers.formatEther(balances.arb));
-  const baseBalance = parseFloat(ethers.formatEther(balances.base));
-  const optBalance = parseFloat(ethers.formatEther(balances.opt));
-  const solBalance = balances.sol / 1e9; // Convert lamports to SOL
 
-  return (
-    `Hello, ${firstName}!\n\n` +
-    `Here are your current wallet details:\n\n` +
-    `EVM Wallet: \`${evmWallet.address}\`\n` +
-    `Solana Wallet: \`${solanaWallet.address}\`\n\n` +
-    `Balances:\n` +
-    `ETH: \`${ethBalance}\` ETH ($${(ethBalance * prices.eth).toFixed(2)})\n` +
-    `ARB: \`${arbBalance}\` ETH ($${(arbBalance * prices.eth).toFixed(2)})\n` +
-    `BASE: \`${baseBalance}\` ETH ($${(baseBalance * prices.eth).toFixed(2)})\n` +
-    `OPT: \`${optBalance}\` ETH ($${(optBalance * prices.eth).toFixed(2)})\n` +
-    `SOL: \`${solBalance}\` SOL ($${(solBalance * prices.sol).toFixed(2)})\n`
-  );
-}

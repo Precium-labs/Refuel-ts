@@ -4,48 +4,11 @@ import { Message } from 'telegraf/types';
 import { ethers } from 'ethers';
 import { Keypair, Connection, clusterApiUrl, PublicKey } from '@solana/web3.js';
 import { MyContext } from '../index'
-import dotenv from "dotenv"
+import setupProviders from '../helper_functions/providers';
+import fetchBalances, { fetchPrices } from '../helper_functions/fetchBalances';
+import { Balances, Prices, UserWalletData, WalletData } from '../helper_functions/interfaces';
+import { generateReferralCode, processReferral } from '../helper_functions/refferal';
 
-dotenv.config();
-
-const API_KEY = process.env.ALCHEMY_API
-
-interface Prices {
-  eth: number;
-  sol: number;
-}
-
-interface Balances {
-  eth: bigint;
-  arb: bigint;
-  base: bigint;
-  opt: bigint;
-  sol: number;
-}
-
-interface WalletData {
-  address: string;
-  private_key: string;
-  seed_phrase?: string;
-}
-
-interface UserWalletData {
-  evm_wallet: WalletData;
-  solana_wallet: WalletData;
-}
-
-async function fetchPrices(): Promise<Prices> {
-  try {
-    const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=ethereum,solana&vs_currencies=usd');
-    return {
-      eth: response.data.ethereum.usd,
-      sol: response.data.solana.usd,
-    };
-  } catch (error) {
-    console.error('Error fetching prices:', error);
-    return { eth: 0, sol: 0 };
-  }
-}
 
 function generateWalletMessage(
   firstName: string,
@@ -88,80 +51,6 @@ function generateWalletMessage(
     `<b>ETH</b>-<b>SOL</b>-<b>BASE</b>-<b>OPTIMISM</b>-<b>ARBITRUM</b>\n`;
 }
 
-function setupProviders() {
-  return {
-    eth: new ethers.JsonRpcProvider(`https://eth-mainnet.g.alchemy.com/v2/${API_KEY}`),
-    arb: new ethers.JsonRpcProvider(`https://arb-mainnet.g.alchemy.com/v2/${API_KEY}`),
-    base: new ethers.JsonRpcProvider(`https://base-mainnet.g.alchemy.com/v2/${API_KEY}`),
-    opt: new ethers.JsonRpcProvider(`https://opt-mainnet.g.alchemy.com/v2/${API_KEY}`),
-    sol: new Connection(clusterApiUrl('mainnet-beta'), 'confirmed')
-  };
-}
-
-async function fetchBalances(providers: any, evmWallet: WalletData, solanaWallet: WalletData): Promise<Balances> {
-  try {
-    const [ethBalance, arbBalance, baseBalance, optBalance, solBalance] = await Promise.all([
-      providers.eth.getBalance(evmWallet.address).catch((e: Error) => {
-        console.error('Error fetching ETH balance:', e);
-        return 0n;
-      }),
-      providers.arb.getBalance(evmWallet.address).catch((e: Error) => {
-        console.error('Error fetching ARB balance:', e);
-        return 0n;
-      }),
-      providers.base.getBalance(evmWallet.address).catch((e: Error) => {
-        console.error('Error fetching BASE balance:', e);
-        return 0n;
-      }), 
-      providers.opt.getBalance(evmWallet.address).catch((e: Error) => {
-        console.error('Error fetching OPT balance:', e);
-        return 0n;
-      }),
-      providers.sol.getBalance(new PublicKey(solanaWallet.address)).catch((e: Error) => {
-        console.error('Error fetching SOL balance:', e);
-        return 0;
-      }),
-    ]);
-
-    return {
-      eth: ethBalance,
-      arb: arbBalance,
-      base: baseBalance,
-      opt: optBalance,
-      sol: solBalance,
-    };
-  } catch (error) {
-    console.error('Error fetching balances:', error);
-    return {
-      eth: 0n,
-      arb: 0n,
-      base: 0n,
-      opt: 0n,
-      sol: 0,
-    };
-  }
-}
-
-async function generateReferralCode(telegramId: string): Promise<string> {
-  try {
-    const response = await axios.post(`https://refuel-gux8.onrender.com/api/refuel/wallet/generateRefferal/${telegramId}`);
-    return response.data.referral_code;
-  } catch (error) {
-    console.error('Error generating referral code:', error);
-    throw new Error('Failed to generate referral code');
-  }
-}
-
-async function processReferral(referralCode: string, telegramId: string) {
-  try {
-    const response = await axios.post(`https://refuel-gux8.onrender.com/api/refuel/wallet/referral/processReferral/${referralCode}/${telegramId}`);
-    console.log('Referral processed:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('Error processing referral:', error);
-    throw error;
-  }
-}
 
 module.exports = (bot: Telegraf<MyContext>) => {
   bot.start(async (ctx) => {
@@ -335,6 +224,6 @@ module.exports = (bot: Telegraf<MyContext>) => {
   });
 };
 // start.ts
-export { setupProviders, fetchBalances, fetchPrices, generateWalletMessage } 
+export { generateWalletMessage } 
 
 

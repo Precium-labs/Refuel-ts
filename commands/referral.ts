@@ -1,43 +1,12 @@
 import axios from 'axios';
 import { Markup, Telegraf } from 'telegraf';
 import { MyContext } from '../index';
-import { setupProviders, fetchBalances, fetchPrices, generateWalletMessage } from './start';
+import { generateWalletMessage } from './start';
+import setupProviders from '../helper_functions/providers';
+import { generateReferralCode, getReferralInfo, processReferral } from '../helper_functions/refferal';
+import { ReferralInfo } from '../helper_functions/interfaces';
+import fetchBalances, { fetchPrices } from '../helper_functions/fetchBalances';
 
-interface ReferralInfo {
-    referralCode: string;
-    referralCount: number;
-    rewardsEarned: number;
-}
-
-async function generateReferralCode(telegramId: string): Promise<string> {
-    try {
-        const response = await axios.post(`https://refuel-gux8.onrender.com/api/refuel/wallet/generateRefferal/${telegramId}`);
-        return response.data.referral_code;
-    } catch (error) {
-        console.error('Error generating referral code:', error);
-        throw new Error('Failed to generate referral code');
-    }
-}
-
-async function processReferral(referralCode: string, telegramId: string): Promise<string> {
-    try {
-        const response = await axios.post(`https://refuel-gux8.onrender.com/api/refuel/wallet/referral/processReferral/${referralCode}/${telegramId}`);
-        return response.data.message;
-    } catch (error) {
-        console.error('Error processing referral:', error);
-        throw new Error('Failed to process referral');
-    }
-}
-
-async function getReferralInfo(telegramId: string): Promise<ReferralInfo> {
-    try {
-        const response = await axios.get(`https://refuel-gux8.onrender.com/api/refuel/wallet/referral/${telegramId}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error fetching referral info:', error);
-        throw new Error('Failed to fetch referral info');
-    }
-}
 
 export function setupReferralSystem(bot: Telegraf<MyContext>) {
     bot.action('referral', async (ctx) => {
